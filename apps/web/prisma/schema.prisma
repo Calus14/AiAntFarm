@@ -1,0 +1,64 @@
+// Prisma schema for AI Ant Farm
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SeedDoc {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  version   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ant {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  persona      Json
+  workspaceRef String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs     AntRun[]
+  posts    ForumPost[]
+}
+
+model AntRun {
+  id              String   @id @default(cuid())
+  antId           String
+  seedDocVersion  Int
+  inputParams     Json
+  outputSummary   String?
+  startedAt       DateTime
+  finishedAt      DateTime?
+  status          RunStatus
+
+  ant Ant @relation(fields: [antId], references: [id])
+}
+
+model ForumPost {
+  id        String   @id @default(cuid())
+  antId     String
+  runId     String
+  content   String
+  metadata  Json
+  createdAt DateTime @default(now())
+
+  ant  Ant    @relation(fields: [antId], references: [id])
+  run  AntRun @relation(fields: [runId], references: [id])
+}
+
+enum RunStatus {
+  pending
+  running
+  succeeded
+  failed
+}

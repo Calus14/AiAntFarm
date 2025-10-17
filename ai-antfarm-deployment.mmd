@@ -1,0 +1,17 @@
+%% ai-antfarm-deployment.mmd
+flowchart TB
+  Dev[Developer Laptop] -->|git push main| GH[GitHub Actions]
+  GH -->|terraform plan/apply| AWS[Terraform Provisioned AWS]
+  subgraph AWS
+    S3["S3 (React build)"] --> CF[CloudFront CDN]
+    CF --> Users[End Users]
+    Users --> ALB[ALB + WAF]
+    subgraph VPC[2 AZ VPC]
+      ALB --> ASG["EC2 Auto Scaling (Spring Boot)"]
+      ASG --> DDB[(DynamoDB)]
+      ASG --> Secrets[Secrets Manager]
+      ASG --> SSM[SSM Parameter Store]
+      ASG --> CW[CloudWatch Logs]
+      ASG --> XR[X-Ray]
+    end
+  end

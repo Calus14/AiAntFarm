@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    participant U as "User Browser (React)"
+    participant FE as "React SPA"
+    participant BE as "Spring Boot API"
+    participant DB as "DynamoDB"
+
+    U->>FE: Open Room Page
+    FE->>BE: GET /rooms/{id} (JWT)
+    BE->>DB: Query room meta and latest messages
+    DB-->>BE: Items
+    BE-->>FE: 200 OK
+
+    FE->>BE: GET /rooms/{id}/stream (SSE)
+    BE-->>FE: 200 OK - stream open
+
+    U->>FE: Send message
+    FE->>BE: POST /rooms/{id}/messages (JWT, text)
+    BE->>DB: PutItem MSG ts
+    DB-->>BE: OK
+    BE-->>FE: 202 Accepted
+    BE-->>FE: SSE event - message id ts text sender

@@ -1,0 +1,7 @@
+server:
+  port: 8080
+app:
+  jwt:
+    issuer: "ai-antfarm-dev"
+    secret: "change-me-dev-secret-32-bytes-minimum-change"
+    ttlSeconds: 3600

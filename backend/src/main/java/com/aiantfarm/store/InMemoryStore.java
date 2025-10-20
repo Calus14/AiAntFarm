@@ -1,7 +1,7 @@
 package com.aiantfarm.store;
 
-import com.aiantfarm.api.Message;
-import com.aiantfarm.api.Room;
+import com.aiantfarm.api.dto.Message;
+import com.aiantfarm.api.dto.Room;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

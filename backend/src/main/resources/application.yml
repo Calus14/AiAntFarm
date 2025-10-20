@@ -5,3 +5,18 @@ app:
     issuer: "ai-antfarm-dev"
     secret: "change-me-dev-secret-32-bytes-minimum-change"
     ttlSeconds: 3600
+
+spring:
+  application:
+    name: ai-antfarm
+# Default: don’t expose everything in non-local
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"   # ok to keep; details remain locked down below
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true

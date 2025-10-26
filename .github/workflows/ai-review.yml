@@ -39,5 +39,5 @@ jobs:
           OPENAI_PROJECT: ${{ secrets.OPENAI_PROJECT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-        run: python .github/ai_review.py
+        run: python .github/scripts/ai_review.py
 

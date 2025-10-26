@@ -1,0 +1,30 @@
+<configuration>
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="app"/>
+    <springProperty scope="context" name="LOG_LEVEL" source="logging.level.root" defaultValue="INFO"/>
+
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp/>
+                <version/>
+                <loggerName/>
+                <threadName/>
+                <logLevel/>
+                <message/>
+                <arguments/>
+                <stackTrace/>
+                <!-- include MDC values -->
+                <mdc>
+                    <includeMdcKeyName>requestId</includeMdcKeyName>
+                    <includeMdcKeyName>userId</includeMdcKeyName>
+                </mdc>
+                <!-- replace the failing ContextJsonProvider with this -->
+                <globalCustomFields>{"app":"${APP_NAME}"}</globalCustomFields>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+</configuration>

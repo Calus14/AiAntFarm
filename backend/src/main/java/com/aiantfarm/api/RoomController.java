@@ -1,16 +1,9 @@
 package com.aiantfarm.api;
 
-import com.aiantfarm.api.dto.ListResponse;
-import com.aiantfarm.api.dto.MessageDto;
-import com.aiantfarm.api.dto.PostMessageRequest;
-import com.aiantfarm.api.dto.RoomDto;
-import com.aiantfarm.api.dto.RoomDetailDto;
-import com.aiantfarm.domain.AuthorType;
-import com.aiantfarm.domain.Message;
-import com.aiantfarm.domain.Room;
-import com.aiantfarm.repository.MessageRepository;
-import com.aiantfarm.repository.Page;
-import com.aiantfarm.repository.RoomRepository;
+import com.aiantfarm.api.dto.*;
+import com.aiantfarm.service.IRoomService;
+import com.aiantfarm.exception.ResourceNotFoundException;
+import com.aiantfarm.exception.RoomAlreadyExistsException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -22,25 +15,43 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/rooms")
 public class RoomController {
 
-  private final RoomRepository roomRepository;
-  private final MessageRepository messageRepository;
+  private final IRoomService roomService;
 
-  public RoomController(RoomRepository roomRepository, MessageRepository messageRepository) {
-    this.roomRepository = roomRepository;
-    this.messageRepository = messageRepository;
+  public RoomController(IRoomService roomService) {
+    this.roomService = roomService;
   }
 
   @Value("${app.jwt.secret}")
   private String secret;
+
+  private static final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
+
+  @PostMapping
+  public ResponseEntity<?> create(@RequestHeader("Authorization") String auth,
+                                  @RequestBody CreateRoomRequest req) {
+    try {
+      Claims claims = parse(auth);
+      String userId = userId(claims);
+
+      try {
+        var dto = roomService.createRoom(userId, req);
+        return ResponseEntity.status(201).body(dto);
+      } catch (RoomAlreadyExistsException e) {
+        return ResponseEntity.status(409).body(Map.of("error", "Room already exists"));
+      } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest().build();
+      }
+    } catch (JwtException e) {
+      return ResponseEntity.status(401).build();
+    }
+  }
 
   @GetMapping("/created")
   public ResponseEntity<ListResponse<RoomDto>> listCreated(@RequestHeader("Authorization") String auth) {
@@ -51,10 +62,19 @@ public class RoomController {
       Claims claims = parse(auth);
       String userId = userId(claims);
 
-      Page<Room> page = roomRepository.listByUserCreatedId(userId, 100, null);
-      List<RoomDto> items = page.items().stream().map(RoomController::toDto).collect(Collectors.toList());
+      var resp = roomService.listCreated(userId);
+      return ResponseEntity.ok(resp);
+    } catch (JwtException e) {
+      return ResponseEntity.status(401).build();
+    }
+  }
 
-      return ResponseEntity.ok(new ListResponse<>(items));
+  @GetMapping
+  public ResponseEntity<ListResponse<RoomDto>> listAll(@RequestHeader("Authorization") String auth) {
+    try {
+      parse(auth);
+      var resp = roomService.listAll(100, null);
+      return ResponseEntity.ok(resp);
     } catch (JwtException e) {
       return ResponseEntity.status(401).build();
     }
@@ -66,26 +86,19 @@ public class RoomController {
     try {
       parse(auth); // validate token; content not required here beyond validation
 
-      var optRoom = roomRepository.findById(roomId);
-      if (optRoom.isEmpty()) {
+      try {
+        var dto = roomService.getRoomDetail(roomId);
+        return ResponseEntity.ok(dto);
+      } catch (ResourceNotFoundException e) {
         return ResponseEntity.notFound().build();
       }
-      var roomDto = toDto(optRoom.get());
-
-      Page<Message> page = messageRepository.listByRoom(roomId, 200, null);
-      List<MessageDto> msgs = page.items().stream().map(RoomController::toDto).collect(Collectors.toList());
-
-      return ResponseEntity.ok(new RoomDetailDto(roomDto, msgs));
     } catch (JwtException e) {
       return ResponseEntity.status(401).build();
     }
   }
 
-  private static final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
-
   @GetMapping(path="/{roomId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter stream(@RequestParam("token") String token, @PathVariable String roomId) {
-    // token may be a bare token or "Bearer ..." - parse handles either
     parse(token);
     var emitter = new SseEmitter(0L);
     emitters.computeIfAbsent(roomId, k -> new ArrayList<>()).add(emitter);
@@ -105,29 +118,23 @@ public class RoomController {
       Claims claims = parse(auth);
       String user = userId(claims);
 
-      // Ensure room exists
-      if (roomRepository.findById(roomId).isEmpty()) {
+      try {
+        var dto = roomService.postMessage(user, roomId, req);
+
+        var list = emitters.getOrDefault(roomId, List.of());
+        var it = list.iterator();
+        while (it.hasNext()) {
+          var e = it.next();
+          try {
+            e.send(SseEmitter.event().name("message").data(dto));
+          } catch (Exception ex) {
+            it.remove();
+          }
+        }
+        return ResponseEntity.accepted().build();
+      } catch (ResourceNotFoundException e) {
         return ResponseEntity.notFound().build();
       }
-
-      // Persist via store (domain) - single-tenant signature
-      var domainMsg = Message.createUserMsg(roomId, user, req.text());
-      domainMsg = messageRepository.create(domainMsg);
-
-      // Map to DTO for SSE fan-out
-      var dto = toDto(domainMsg);
-
-      var list = emitters.getOrDefault(roomId, List.of());
-      var it = list.iterator();
-      while (it.hasNext()) {
-        var e = it.next();
-        try {
-          e.send(SseEmitter.event().name("message").data(dto));
-        } catch (Exception ex) {
-          it.remove();
-        }
-      }
-      return ResponseEntity.accepted().build();
     } catch (JwtException e) {
       return ResponseEntity.status(401).build();
     }
@@ -143,20 +150,5 @@ public class RoomController {
 
   private static String userId(Claims claims) {
     return claims.getSubject();
-  }
-
-  // --- DTO mappers (domain -> api dto) ---
-
-  private static RoomDto toDto(Room r) {
-    return new RoomDto(r.id(), r.name(), r.createdByUserId());
-  }
-
-  private static MessageDto toDto(Message m) {
-    String author =
-        m.authorType() == AuthorType.USER
-            ? "user"
-            : (m.authorType() == AuthorType.ANT ? "ant" : "system");
-    long tsMs = m.createdAt().toEpochMilli();
-    return new MessageDto(m.id(), m.roomId(), tsMs, author, m.authorUserId(), m.content());
   }
 }

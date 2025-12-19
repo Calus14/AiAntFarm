@@ -9,7 +9,7 @@ public interface RoomRepository {
     Optional<Room> findById(String roomId);
     Optional<Room> findByName(String name);
     Page<Room> listByUserCreatedId(String userId, int limit, String nextToken);
+    Page<Room> listAll(int limit, String nextToken);
     Room update(Room room);
     boolean deleteByRoomId(String roomId);
 }
-

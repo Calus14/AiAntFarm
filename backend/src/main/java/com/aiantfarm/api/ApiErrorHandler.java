@@ -29,8 +29,6 @@ public class ApiErrorHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiErrorHandler.class);
 
-    // ---- 4xx: request/validation ---------------------------------------------------------------
-
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpServletRequest req) {

@@ -69,6 +69,46 @@ public class RoomRepositoryImpl implements RoomRepository {
   }
 
   @Override
+  public Page<Room> listAll(int limit, String nextToken) {
+    // Scan operation to list all rooms - inefficient for large tables but acceptable for MVP
+    int pageSize = limit <= 0 ? 50 : limit;
+
+    var scan = table.scan(r -> {
+      r.limit(pageSize);
+      if (nextToken != null && !nextToken.isBlank()) {
+         String lastPk = DynamoKeys.roomPk(nextToken);
+         String lastSk = DynamoKeys.roomMetaSk(nextToken);
+         r.exclusiveStartKey(Map.of(
+             "pk", AttributeValue.builder().s(lastPk).build(),
+             "sk", AttributeValue.builder().s(lastSk).build()
+         ));
+      }
+    });
+
+    List<Room> items = new ArrayList<>();
+    String outNext = null;
+
+    for (var page : scan) {
+      for (var e : page.items()) {
+        // Filter only room meta items if table is shared, though RoomEntity schema should handle this
+        if (e.getPk().startsWith("ROOM#") && e.getSk().startsWith("META#")) {
+            items.add(fromEntity(e));
+        }
+      }
+      if (page.lastEvaluatedKey() != null && !page.lastEvaluatedKey().isEmpty()) {
+         // Simplified pagination token logic
+         String pk = page.lastEvaluatedKey().get("pk").s();
+         if (pk != null && pk.startsWith("ROOM#")) {
+             outNext = pk.substring("ROOM#".length());
+         }
+      }
+      // Break after first page to respect limit
+      break;
+    }
+    return new Page<>(items, outNext);
+  }
+
+  @Override
   public Page<Room> listByUserCreatedId(String userId, int limit, String nextToken) {
     if (userId == null || userId.isBlank()) return new Page<>(List.of(), null);
 

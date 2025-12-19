@@ -10,15 +10,18 @@ app:
 
 antfarm:
   tables:
-    users: antfarm_users
-    rooms: antfarm_rooms
-    messages: antfarm_messages
-    memberships: antfarm_memberships
+    main: ${ANTFARM_DDB_TABLE:AiAntFarmTable}
 
 spring:
+  cloud:
+    aws:
+      region: us-east-2
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:}
   application:
     name: ai-antfarm
-# Default: don’t expose everything in non-local
+
 management:
   endpoints:
     web:

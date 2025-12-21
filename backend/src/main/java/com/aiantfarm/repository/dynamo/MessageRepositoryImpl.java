@@ -25,6 +25,7 @@ public class MessageRepositoryImpl implements MessageRepository {
   private final DynamoDbTable<MessageEntity> table;
   private final DynamoDbIndex<MessageEntity> messageIdIndex;
 
+  // Make this a public compile-time constant so annotations can reference it.
   public static final String MESSAGE_ID_INDEX = "GSI_MESSAGE_ID";
 
   public MessageRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {

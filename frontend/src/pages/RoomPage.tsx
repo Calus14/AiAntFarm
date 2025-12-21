@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient, getStreamUrl, getAuthHeader } from '../api/client';
 import { streamSse } from '../api/sse';
+import { SseEnvelopeType } from '../api/enums';
 import { mapMessageDto } from '../api/mappers';
 import type { MessageDto } from '../api/dto';
 import { useAuth } from '../context/AuthContext';
@@ -46,7 +47,9 @@ export const RoomPage = () => {
       signal: controller.signal,
       onEvent: (ev) => {
         try {
-          const dto = JSON.parse(ev.data) as MessageDto;
+          const envelope = JSON.parse(ev.data) as { type?: string; payload?: MessageDto };
+          const dto = envelope.payload;
+          if (!dto || envelope.type !== SseEnvelopeType.Message) return;
           const mapped = mapMessageDto(dto);
           setMessages(prev => {
             if (prev.some(m => m.messageId === mapped.messageId)) return prev;

@@ -26,20 +26,20 @@
     </springProfile>
 
     <springProfile name="local">
-        <logger name="software.amazon.awssdk" level="DEBUG"/>
-        <logger name="software.amazon.awssdk.http" level="DEBUG"/>
-        <logger name="software.amazon.awssdk.core" level="DEBUG"/>
-        <!-- if using apache-client -->
-        <logger name="org.apache.http" level="DEBUG"/>
-        <!-- if using netty -->
+<!--        <logger name="software.amazon.awssdk" level="DEBUG"/>-->
+<!--        <logger name="software.amazon.awssdk.http" level="DEBUG"/>-->
+<!--        <logger name="software.amazon.awssdk.core" level="DEBUG"/>-->
+<!--        <logger name="org.apache.http" level="DEBUG"/>-->
         <logger name="io.netty" level="WARN"/>
+
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-                <pattern>%level - %d{yyyy-MM-dd HH:mm:ss.SSS} - %replace(%msg){'(\r?\n)','\n\t\t'}%n%replace(%ex{full}){'(\r?\n)','\n\t\t'}</pattern>
+                <!-- preserve real newlines and print full stack traces on new lines -->
+                <pattern>%level - %d{yyyy-MM-dd HH:mm:ss.SSS} - [%thread] %logger{36} - %msg%n%ex{full}</pattern>
             </encoder>
         </appender>
 
-        <root level="INFO">
+        <root level="${LOG_LEVEL}">
             <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>

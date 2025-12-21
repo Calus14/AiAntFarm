@@ -7,10 +7,10 @@ import com.aiantfarm.repository.Page;
 import com.aiantfarm.repository.entity.MessageEntity;
 import com.aiantfarm.utils.DynamoKeys;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
-import software.amazon.awssdk.enhanced.dynamodb.model.PageIterable;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -23,9 +23,13 @@ import java.util.Optional;
 public class MessageRepositoryImpl implements MessageRepository {
 
   private final DynamoDbTable<MessageEntity> table;
+  private final DynamoDbIndex<MessageEntity> messageIdIndex;
+
+  public static final String MESSAGE_ID_INDEX = "GSI_MESSAGE_ID";
 
   public MessageRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(MessageEntity.class));
+    this.messageIdIndex = table.index(MESSAGE_ID_INDEX);
   }
 
   private static MessageEntity toEntity(Message m) {
@@ -60,17 +64,15 @@ public class MessageRepositoryImpl implements MessageRepository {
 
   @Override
   public Optional<Message> findById(String messageId) {
-    // With a room-partitioned schema, messageId alone is not enough for a direct GetItem.
-    // We do a targeted scan for now (acceptable for this small project); later add a GSI on messageId.
     if (messageId == null || messageId.isBlank()) return Optional.empty();
 
-    // Scan until we find the messageId (early exit)
-    PageIterable<MessageEntity> pages = table.scan();
-    for (var p : pages) {
-      for (var e : p.items()) {
-        if (messageId.equals(e.getMessageId())) {
-          return Optional.of(fromEntity(e));
-        }
+    var res = messageIdIndex.query(r -> r.queryConditional(
+        QueryConditional.keyEqualTo(Key.builder().partitionValue(messageId).build())
+    ));
+
+    for (var page : res) {
+      for (var e : page.items()) {
+        return Optional.of(fromEntity(e));
       }
     }
 
@@ -84,14 +86,16 @@ public class MessageRepositoryImpl implements MessageRepository {
     }
 
     int pageSize = limit <= 0 ? 50 : limit;
-
     final String pk = DynamoKeys.roomPk(roomId);
+    final String msgPrefix = "MSG#";
 
     var req = table.query(r -> {
-      r.queryConditional(QueryConditional.keyEqualTo(Key.builder().partitionValue(pk).build()));
+      r.queryConditional(QueryConditional.sortBeginsWith(
+          Key.builder().partitionValue(pk).sortValue(msgPrefix).build()));
       r.limit(pageSize);
+      // newest first (SK contains ISO timestamp prefix)
+      r.scanIndexForward(false);
 
-      // nextToken is the last evaluated SK from the previous page
       if (nextToken != null && !nextToken.isBlank()) {
         r.exclusiveStartKey(Map.of(
             "pk", AttributeValue.builder().s(pk).build(),
@@ -121,16 +125,19 @@ public class MessageRepositoryImpl implements MessageRepository {
 
     // Find the entity so we know its pk/sk.
     MessageEntity found = null;
-    PageIterable<MessageEntity> pages = table.scan();
+
+    var res = messageIdIndex.query(r -> r.queryConditional(
+        QueryConditional.keyEqualTo(Key.builder().partitionValue(messageId).build())
+    ));
+
     outer:
-    for (var p : pages) {
-      for (var e : p.items()) {
-        if (messageId.equals(e.getMessageId())) {
-          found = e;
-          break outer;
-        }
+    for (var page : res) {
+      for (var e : page.items()) {
+        found = e;
+        break outer;
       }
     }
+
     if (found == null) return false;
 
     final MessageEntity existing = found;

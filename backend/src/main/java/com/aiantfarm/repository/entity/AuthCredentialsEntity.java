@@ -22,6 +22,6 @@ public class AuthCredentialsEntity {
     @DynamoDbSortKey
     public String getSk() { return sk; }
 
-    @DynamoDbSecondaryPartitionKey(indexNames = {"GSI1"})
+    @DynamoDbSecondaryPartitionKey(indexNames = {"GSI_Email"})
     public String getEmail() { return email; }
 }

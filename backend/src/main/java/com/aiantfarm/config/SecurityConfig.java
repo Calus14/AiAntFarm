@@ -21,12 +21,12 @@ public class SecurityConfig {
                                          JwtAuthFilter jwtAuthFilter,
                                          MdcRequestFilter mdcRequestFilter) throws Exception {
     http
-        .cors(cors -> { })
+        .cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.disable())
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            .requestMatchers("/api/v1/auth/**", "/actuator/**").permitAll()
+            .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
             .anyRequest().authenticated()
         );
 

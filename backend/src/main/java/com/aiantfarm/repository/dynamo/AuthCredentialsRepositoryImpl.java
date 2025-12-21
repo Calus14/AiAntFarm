@@ -17,11 +17,11 @@ public class AuthCredentialsRepositoryImpl implements AuthCredentialsRepository 
   private final DynamoDbTable<AuthCredentialsEntity> table;
   private final DynamoDbIndex<AuthCredentialsEntity> userEmailIndex;
 
-  private static final String USERNAME_INDEX = "GSI1";
+  private static final String EMAIL_INDEX = "GSI_Email";
 
   public AuthCredentialsRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(AuthCredentialsEntity.class));
-    this.userEmailIndex = table.index(USERNAME_INDEX);
+    this.userEmailIndex = table.index(EMAIL_INDEX);
   }
 
   private static AuthCredentialsEntity withKeys(AuthCredentialsEntity entity, String userId) {

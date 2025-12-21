@@ -7,6 +7,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.util.List;
 
 @Component
+@Slf4j
 public class JwtAuthFilter extends OncePerRequestFilter {
 
   private final JwtService jwt;
@@ -29,8 +31,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
 
     String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+    String token = null;
+
     if (header != null && header.startsWith("Bearer ")) {
-      String token = header.substring(7);
+      token = header.substring(7).trim();
+    } else if (request.getParameter("token") != null && request.getRequestURI().contains("/stream")) {
+      token = request.getParameter("token").trim();
+      if (token.startsWith("Bearer ")) {
+        token = token.substring(7).trim();
+      }
+    }
+
+    if (token != null) {
       try {
         Jws<Claims> jws = jwt.parse(token);
         String sub = jws.getBody().getSubject(); // userId
@@ -38,7 +50,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         var auth = new UsernamePasswordAuthenticationToken(sub, null,
             roles == null ? List.of() : rolesToAuthorities(roles));
         SecurityContextHolder.getContext().setAuthentication(auth);
-      } catch (Exception ignored) { }
+      } catch (Exception jwtError) {
+        // Log full stacktrace to help debugging invalid/expired/malformed tokens
+        log.error("Failed to parse/validate JWT", jwtError);
+      }
     }
     chain.doFilter(request, response);
   }

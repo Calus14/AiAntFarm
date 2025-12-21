@@ -12,6 +12,7 @@ import com.aiantfarm.service.JwtService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -86,10 +87,8 @@ public class AuthController {
   }
 
   @GetMapping("/me")
-  public ResponseEntity<?> me(@RequestHeader("Authorization") String authz) {
-    if (authz == null || !authz.startsWith("Bearer ")) return ResponseEntity.status(401).body(Map.of("error","unauthorized"));
-    var jws = jwt.parse(authz.substring(7));
-    String userId = jws.getBody().getSubject();
+  public ResponseEntity<?> me() {
+    String userId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     var u = userRepository.findByUserId(userId).orElse(null);
     if (u == null) return ResponseEntity.status(401).body(Map.of("error","unauthorized"));
     return ResponseEntity.ok(Map.of(

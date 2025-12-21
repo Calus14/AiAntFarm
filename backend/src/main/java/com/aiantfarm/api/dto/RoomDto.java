@@ -1,4 +1,5 @@
 package com.aiantfarm.api.dto;
 
-public record RoomDto(String roomId, String name, String tenantId) {
+//owner ID is the user ID of the room creator
+public record RoomDto(String roomId, String name, String ownerId, String createdAt) {
 }

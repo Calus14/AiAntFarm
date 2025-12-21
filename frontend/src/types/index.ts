@@ -1,0 +1,31 @@
+export type AuthorType = 'USER' | 'ANT' | 'SYSTEM';
+
+export interface User {
+  id: string;
+  userEmail: string;
+  displayName: string;
+  active: boolean;
+}
+
+export interface Room {
+  roomId: string;
+  name: string;
+  ownerId: string;
+  createdAt: string;
+}
+
+export interface Message {
+  messageId: string;
+  roomId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface RoomDetail extends Room {
+  messages: Message[];
+}
+
+export interface AuthResponse {
+  token: string;
+}

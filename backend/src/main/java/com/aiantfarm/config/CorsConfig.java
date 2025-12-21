@@ -19,7 +19,20 @@ public class CorsConfig {
             @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
 
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(allowedOrigins);
+        List<String> allowedOriginPatterns = allowedOrigins.stream().filter(
+                origin -> origin.contains("*")
+        ).toList();
+        List<String> explicitAllowedOrigins = allowedOrigins.stream().filter(
+                origin -> !origin.contains("*")
+        ).toList();
+        if(!allowedOriginPatterns.isEmpty()) {
+            // When allowing all origins, must not allow credentials
+            cfg.setAllowedOriginPatterns(allowedOriginPatterns);
+        }
+        if(!explicitAllowedOrigins.isEmpty()) {
+          cfg.setAllowedOrigins(explicitAllowedOrigins);
+        }
+
         cfg.setAllowedMethods(Arrays.asList(
                 HttpMethod.GET.name(),
                 HttpMethod.POST.name(),

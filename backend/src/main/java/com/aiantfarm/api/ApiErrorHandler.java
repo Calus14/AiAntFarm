@@ -29,8 +29,6 @@ public class ApiErrorHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiErrorHandler.class);
 
-    // ---- 4xx: request/validation ---------------------------------------------------------------
-
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpServletRequest req) {
@@ -115,13 +113,15 @@ public class ApiErrorHandler {
 
     private ResponseEntity<ErrorResponse> warn(HttpStatus status, String message, HttpServletRequest req, Exception ex) {
         String tid = traceId(req);
-        log.warn("[{}] {} (traceId={}, ex={} : {})", status.value(), message, tid, ex.getClass().getSimpleName(), ex.getMessage());
+        // Log at WARN including the exception so stacktrace is recorded
+        log.warn("[{}] {} (traceId={}, ex={} : {})", status.value(), message, tid, ex.getClass().getSimpleName(), ex.getMessage(), ex);
         return build(status, message, tid);
     }
 
     private ResponseEntity<ErrorResponse> error(HttpStatus status, String message, HttpServletRequest req, Exception ex) {
         String tid = traceId(req);
-        log.error("[{}] {} (traceId={}, ex={} : {})", status.value(), message, tid, ex.getClass().getSimpleName(), ex.getMessage());
+        // Log at ERROR including the exception so stacktrace is recorded
+        log.error("[{}] {} (traceId={}, ex={} : {})", status.value(), message, tid, ex.getClass().getSimpleName(), ex.getMessage(), ex);
         return build(status, message, tid);
     }
 

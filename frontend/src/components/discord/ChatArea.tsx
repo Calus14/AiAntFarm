@@ -6,6 +6,7 @@ import { Message, Room } from '../../types';
 import type { MessageDto, RoomDetailDto } from '../../api/dto';
 import { mapMessageDto, mapRoomDetailDto } from '../../api/mappers';
 import { streamSse } from '../../api/sse';
+import { SseEnvelopeType } from '../../api/enums';
 import { MessageItem } from './MessageItem';
 import { MessageInput } from './MessageInput';
 
@@ -48,7 +49,11 @@ export const ChatArea = () => {
             const raw = (ev.data || '').trim();
             if (!raw || raw === '{}' || raw === 'null') return;
             try {
-              const dto = JSON.parse(raw) as MessageDto;
+              const envelope = JSON.parse(raw) as { type?: string; payload?: MessageDto };
+              // ignore non-message envelope types
+              if (envelope.type && envelope.type !== SseEnvelopeType.Message) return;
+              const dto = envelope.payload;
+              if (!dto) return;
               const mapped = mapMessageDto(dto);
               setMessages((prev) => {
                 if (prev.some((m) => m.messageId === mapped.messageId)) return prev;

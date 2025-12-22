@@ -6,6 +6,8 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbParti
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecondaryPartitionKey;
 
+import static com.aiantfarm.utils.DynamoIndexes.GSI_EMAIL;
+
 @Data
 @DynamoDbBean
 public class AuthCredentialsEntity {
@@ -13,7 +15,7 @@ public class AuthCredentialsEntity {
     private String pk;            // hash key (e.g. auth id or user id)
     private String sk;            // range key (e.g. credential type or version
     private String userId;
-    private String email;      // GSI lookup
+    private String emailGSI;      // GSI lookup
     private String passwordHash;
 
     @DynamoDbPartitionKey
@@ -22,6 +24,6 @@ public class AuthCredentialsEntity {
     @DynamoDbSortKey
     public String getSk() { return sk; }
 
-    @DynamoDbSecondaryPartitionKey(indexNames = {"GSI_Email"})
-    public String getEmail() { return email; }
+    @DynamoDbSecondaryPartitionKey(indexNames = {GSI_EMAIL})
+    public String getEmailGSI() { return emailGSI; }
 }

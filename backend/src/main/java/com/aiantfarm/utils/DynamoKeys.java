@@ -48,8 +48,40 @@ public final class DynamoKeys {
     return "MSG#" + DateTimeFormatter.ISO_INSTANT.format(createdAt) + "#" + messageId;
   }
 
+  // --- Ants ---
+
+  public static String antPk(String antId) {
+    require(antId, "antId");
+    return "ANT#" + antId;
+  }
+
+  public static String antMetaSk(String antId) {
+    require(antId, "antId");
+    return "META#" + antId;
+  }
+
+  public static String antOwnerGsiPk(String ownerUserId) {
+    require(ownerUserId, "ownerUserId");
+    return "OWNER#" + ownerUserId;
+  }
+
+  public static String antRoomSk(String roomId) {
+    require(roomId, "roomId");
+    return "ROOM#" + roomId;
+  }
+
+  public static String roomAntSk(String antId) {
+    require(antId, "antId");
+    return "ANT#" + antId;
+  }
+
+  public static String antRunSk(Instant startedAt, String runId) {
+    Objects.requireNonNull(startedAt, "startedAt");
+    require(runId, "runId");
+    return "RUN#" + DateTimeFormatter.ISO_INSTANT.format(startedAt) + "#" + runId;
+  }
+
   private static void require(String s, String name) {
     if (s == null || s.isBlank()) throw new IllegalArgumentException(name + " must be set");
   }
 }
-

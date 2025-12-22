@@ -36,7 +36,7 @@ public class AuthCredentialsRepositoryImpl implements AuthCredentialsRepository 
     if (entity == null || entity.getUserId() == null || entity.getUserId().isBlank()) {
       throw new IllegalArgumentException("userId must be set on AuthCredentialsEntity before create");
     }
-    if (entity.getEmail() == null || entity.getEmail().isBlank()) {
+    if (entity.getEmailGSI() == null || entity.getEmailGSI().isBlank()) {
       throw new IllegalArgumentException("email must be set on AuthCredentialsEntity before create");
     }
     withKeys(entity, entity.getUserId());

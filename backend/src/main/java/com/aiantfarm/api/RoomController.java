@@ -1,7 +1,9 @@
 package com.aiantfarm.api;
 
 import com.aiantfarm.api.dto.*;
+import com.aiantfarm.service.IAntService;
 import com.aiantfarm.service.IRoomService;
+import com.aiantfarm.domain.Message;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.exception.RoomAlreadyExistsException;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +23,11 @@ import java.util.concurrent.*;
 public class RoomController {
 
   private final IRoomService roomService;
+  private final IAntService antService;
 
-  public RoomController(IRoomService roomService) {
+  public RoomController(IRoomService roomService, IAntService antService) {
     this.roomService = roomService;
+    this.antService = antService;
   }
 
   private static final Map<String, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
@@ -138,27 +142,53 @@ public class RoomController {
     String user = currentUserId();
     try {
       var dto = roomService.postMessage(user, roomId, req);
-
-      var list = emitters.getOrDefault(roomId, new CopyOnWriteArrayList<>());
-      int sent = 0;
-      for (var e : list) {
-        try {
-          e.send(SseEmitter.event().name("message").data(new SseEnvelope<>("message", dto)));
-          sent++;
-        } catch (Exception ex) {
-          list.remove(e);
-          try { e.complete(); } catch (Exception ignored) { }
-        }
-      }
-
-      if (!list.isEmpty()) {
-        log.debug("SSE broadcast roomId={} sent={} remainingEmitters={}", roomId, sent, list.size());
-      }
-
+      broadcastEnvelope(roomId, new SseEnvelope<>("message", dto));
       return ResponseEntity.accepted().build();
     } catch (ResourceNotFoundException e) {
       return ResponseEntity.notFound().build();
     }
+  }
+
+  /**
+   * Broadcast a newly created domain Message to all SSE clients for the room.
+   *
+   * This is intentionally static so non-controller code (e.g., AntService) can publish room messages
+   * without re-implementing SSE fan-out.
+   */
+  public static void broadcastMessage(String roomId, Message msg) {
+    if (roomId == null || roomId.isBlank() || msg == null) return;
+
+    String author =
+        msg.authorType() == com.aiantfarm.domain.AuthorType.USER
+            ? "user"
+            : (msg.authorType() == com.aiantfarm.domain.AuthorType.ANT ? "ant" : "system");
+
+    long tsMs = msg.createdAt().toEpochMilli();
+    var dto = new MessageDto(msg.id(), msg.roomId(), tsMs, author, msg.authorUserId(), msg.content());
+    broadcastEnvelope(roomId, new SseEnvelope<>("message", dto));
+  }
+
+  private static void broadcastEnvelope(String roomId, SseEnvelope<?> env) {
+    var list = emitters.getOrDefault(roomId, new CopyOnWriteArrayList<>());
+    int sent = 0;
+    for (var e : list) {
+      try {
+        e.send(SseEmitter.event().name(env.type()).data(env));
+        sent++;
+      } catch (Exception ex) {
+        list.remove(e);
+        try { e.complete(); } catch (Exception ignored) { }
+      }
+    }
+
+    if (!list.isEmpty()) {
+      log.debug("SSE broadcast roomId={} eventType={} sent={} remainingEmitters={}", roomId, env.type(), sent, list.size());
+    }
+  }
+
+  @GetMapping("/{roomId}/ants")
+  public ResponseEntity<ListResponse<AntRoomAssignmentDto>> listAntsInRoom(@PathVariable String roomId) {
+    return ResponseEntity.ok(antService.listAntsInRoom(roomId));
   }
 
   private String currentUserId() {

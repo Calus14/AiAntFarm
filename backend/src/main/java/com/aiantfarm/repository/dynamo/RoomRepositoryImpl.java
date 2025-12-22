@@ -168,8 +168,8 @@ public class RoomRepositoryImpl implements RoomRepository {
     e.setPk(DynamoKeys.roomPk(r.id()));
     e.setSk(DynamoKeys.roomMetaSk(r.id()));
     e.setRoomId(r.id());
-    e.setName(r.name());
-    e.setCreatedByUserId(r.createdByUserId());
+    e.setNameGSI(r.name());
+    e.setCreatedByUserIdGSI(r.createdByUserId());
     e.setCreatedAt(r.createdAt());
     return e;
   }
@@ -180,6 +180,6 @@ public class RoomRepositoryImpl implements RoomRepository {
       roomId = e.getPk().substring("ROOM#".length());
     }
     Instant createdAt = e.getCreatedAt() != null ? e.getCreatedAt() : Instant.EPOCH;
-    return new Room(roomId, e.getName(), e.getCreatedByUserId(), createdAt);
+    return new Room(roomId, e.getNameGSI(), e.getCreatedByUserIdGSI(), createdAt);
   }
 }

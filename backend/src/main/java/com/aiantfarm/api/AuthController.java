@@ -48,7 +48,7 @@ public class AuthController {
 
     String hash = encoder.encode(req.getPassword());
     AuthCredentialsEntity authCredentialsEntity = new AuthCredentialsEntity();
-    authCredentialsEntity.setEmail(email);
+    authCredentialsEntity.setEmailGSI(email);
     authCredentialsEntity.setPasswordHash(hash);
     authCredentialsEntity.setUserId(newUser.id());
     authRepository.create(authCredentialsEntity);

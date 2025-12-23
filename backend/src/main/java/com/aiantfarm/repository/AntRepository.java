@@ -11,4 +11,3 @@ public interface AntRepository {
   Optional<Ant> findById(String antId);
   List<Ant> listByOwnerUserId(String ownerUserId);
 }
-

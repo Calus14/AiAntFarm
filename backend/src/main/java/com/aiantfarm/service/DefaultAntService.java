@@ -1,36 +1,22 @@
 package com.aiantfarm.service;
 
 import com.aiantfarm.api.RoomController;
-import com.aiantfarm.api.dto.AntDetailDto;
-import com.aiantfarm.api.dto.AntDto;
-import com.aiantfarm.api.dto.AntRunDto;
-import com.aiantfarm.api.dto.AntRoomAssignmentDto;
-import com.aiantfarm.api.dto.AssignAntToRoomRequest;
-import com.aiantfarm.api.dto.CreateAntRequest;
-import com.aiantfarm.api.dto.ListResponse;
-import com.aiantfarm.api.dto.UpdateAntRequest;
+import com.aiantfarm.api.dto.*;
+import com.aiantfarm.domain.AiModel;
 import com.aiantfarm.domain.Ant;
 import com.aiantfarm.domain.AntRoomAssignment;
 import com.aiantfarm.domain.AntRun;
 import com.aiantfarm.domain.Message;
 import com.aiantfarm.exception.ResourceNotFoundException;
-import com.aiantfarm.repository.AntRepository;
-import com.aiantfarm.repository.AntRoomAssignmentRepository;
-import com.aiantfarm.repository.AntRunRepository;
-import com.aiantfarm.repository.MessageRepository;
-import com.aiantfarm.repository.RoomRepository;
+import com.aiantfarm.repository.*;
+import com.aiantfarm.service.ant.AntScheduler;
+import com.aiantfarm.service.ant.IAntModelRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,42 +28,38 @@ public class DefaultAntService implements IAntService {
   private final AntRunRepository antRunRepository;
   private final RoomRepository roomRepository;
   private final MessageRepository messageRepository;
-
-  private final Map<String, ScheduledFuture<?>> timersByAntId = new ConcurrentHashMap<>();
-
-  private final ScheduledExecutorService antScheduler = Executors.newScheduledThreadPool(2, r -> {
-    Thread t = new Thread(r, "ant-scheduler");
-    t.setDaemon(true);
-    return t;
-  });
+  private final AntScheduler antScheduler;
 
   public DefaultAntService(
       AntRepository antRepository,
       AntRoomAssignmentRepository assignmentRepository,
       AntRunRepository antRunRepository,
       RoomRepository roomRepository,
-      MessageRepository messageRepository
+      MessageRepository messageRepository,
+      AntScheduler antScheduler
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
     this.antRunRepository = antRunRepository;
     this.roomRepository = roomRepository;
     this.messageRepository = messageRepository;
+    this.antScheduler = antScheduler;
   }
 
   @Override
   public AntDto createAnt(String ownerUserId, CreateAntRequest req) {
     if (req == null) throw new IllegalArgumentException("request required");
 
-    int interval = req.intervalSeconds() == null ? 60 : req.intervalSeconds();
-    boolean enabled = req.enabled() != null && req.enabled();
-    boolean replyEvenIfNoNew = req.replyEvenIfNoNew() != null && req.replyEvenIfNoNew();
+    int interval = req.getIntervalSeconds() == null ? 60 : req.getIntervalSeconds();
+    boolean enabled = req.getEnabled() != null && req.getEnabled();
+    boolean replyEvenIfNoNew = req.getReplyEvenIfNoNew() != null && req.getReplyEvenIfNoNew();
+    AiModel model = req.getModel() == null ? AiModel.MOCK : req.getModel();
 
-    Ant ant = Ant.create(ownerUserId, req.name(), req.personalityPrompt(), interval, enabled, replyEvenIfNoNew);
+    Ant ant = Ant.create(ownerUserId, req.getName(), model, req.getPersonalityPrompt(), interval, enabled, replyEvenIfNoNew);
     antRepository.create(ant);
 
     if (ant.enabled()) {
-      ensureTimerRunning(ant);
+      ensureScheduledIfAssigned(ant);
     }
 
     return toDto(ant);
@@ -103,26 +85,26 @@ public class DefaultAntService implements IAntService {
   public AntDto updateAnt(String ownerUserId, String antId, UpdateAntRequest req) {
     Ant ant = requireOwnedAnt(ownerUserId, antId);
 
-    Integer intervalSeconds = req != null ? req.intervalSeconds() : null;
+    Integer intervalSeconds = req != null ? req.getIntervalSeconds() : null;
     if (intervalSeconds != null && intervalSeconds < 5) {
       throw new IllegalArgumentException("intervalSeconds must be >= 5");
     }
 
     Ant updated = ant.withUpdated(
-        req == null ? null : req.name(),
-        req == null ? null : req.personalityPrompt(),
+        req == null ? null : req.getName(),
+        req == null ? null : req.getModel(),
+        req == null ? null : req.getPersonalityPrompt(),
         intervalSeconds,
-        req == null ? null : req.enabled(),
-        req == null ? null : req.replyEvenIfNoNew()
+        req == null ? null : req.getEnabled(),
+        req == null ? null : req.getReplyEvenIfNoNew()
     );
 
     antRepository.update(updated);
 
-    // reschedule timer based on new settings
     if (updated.enabled()) {
-      ensureTimerRunning(updated);
+      ensureScheduledIfAssigned(updated);
     } else {
-      cancelTimer(updated.id());
+      antScheduler.cancel(updated.id());
     }
 
     return toDto(updated);
@@ -136,12 +118,10 @@ public class DefaultAntService implements IAntService {
       throw new IllegalArgumentException("roomId required");
     }
 
-    // Ensure room exists (no room membership checks yet; consistent with current backend)
     if (roomRepository.findById(req.roomId()).isEmpty()) {
       throw new ResourceNotFoundException("room not found");
     }
 
-    // idempotent-ish: if exists, do nothing
     Optional<AntRoomAssignment> existing = assignmentRepository.find(antId, req.roomId());
     if (existing.isPresent()) {
       return;
@@ -150,7 +130,7 @@ public class DefaultAntService implements IAntService {
     assignmentRepository.assign(AntRoomAssignment.create(antId, req.roomId()));
 
     if (ant.enabled()) {
-      ensureTimerRunning(ant);
+      ensureScheduledIfAssigned(ant);
     }
   }
 
@@ -159,9 +139,8 @@ public class DefaultAntService implements IAntService {
     requireOwnedAnt(ownerUserId, antId);
     assignmentRepository.unassign(antId, roomId);
 
-    // If no rooms remain, stop the timer.
     if (assignmentRepository.listByAnt(antId).isEmpty()) {
-      cancelTimer(antId);
+      antScheduler.cancel(antId);
     }
   }
 
@@ -180,7 +159,6 @@ public class DefaultAntService implements IAntService {
       return new ListResponse<>(List.of());
     }
 
-    // We return assignment state. If later you want richer UI (ant name), we can add an expanded DTO.
     List<AntRoomAssignmentDto> items = assignmentRepository.listByRoom(roomId).stream()
         .map(this::toAssignmentDto)
         .toList();
@@ -188,60 +166,30 @@ public class DefaultAntService implements IAntService {
     return new ListResponse<>(items);
   }
 
-  // --- scheduler ---
+  // --- scheduling ---
 
-  private void ensureTimerRunning(Ant ant) {
-    // Only start if the ant has at least one room assignment.
+  private void ensureScheduledIfAssigned(Ant ant) {
     if (assignmentRepository.listByAnt(ant.id()).isEmpty()) {
       return;
     }
 
-    timersByAntId.compute(ant.id(), (antId, existing) -> {
-      if (existing != null && !existing.isCancelled() && !existing.isDone()) {
-        // If interval unchanged, keep; otherwise reschedule.
-        // We can't easily check the existing schedule rate, so keep it simple: cancel and reschedule on update.
-        existing.cancel(false);
-      }
-
-      long intervalMs = Math.max(ant.intervalSeconds(), 5) * 1000L;
-      return antScheduler.scheduleAtFixedRate(
-          () -> runAntTick(ant.id()),
-          intervalMs,
-          intervalMs,
-          TimeUnit.MILLISECONDS
-      );
-    });
-
-    log.info("Ant timer running antId={} intervalSeconds={}", ant.id(), ant.intervalSeconds());
-  }
-
-  private void cancelTimer(String antId) {
-    ScheduledFuture<?> f = timersByAntId.remove(antId);
-    if (f != null) {
-      f.cancel(false);
-      log.info("Ant timer cancelled antId={}", antId);
-    }
+    antScheduler.scheduleOrReschedule(ant, () -> runAntTick(ant.id()));
   }
 
   private void runAntTick(String antId) {
     try {
       Ant ant = antRepository.findById(antId).orElse(null);
-      if (ant == null) {
-        cancelTimer(antId);
-        return;
-      }
-      if (!ant.enabled()) {
-        cancelTimer(antId);
+      if (ant == null || !ant.enabled()) {
+        antScheduler.cancel(antId);
         return;
       }
 
       List<AntRoomAssignment> assignments = assignmentRepository.listByAnt(antId);
       if (assignments.isEmpty()) {
-        cancelTimer(antId);
+        antScheduler.cancel(antId);
         return;
       }
 
-      // Run per room. (In future we might want per-room rate limiting / concurrency caps.)
       for (AntRoomAssignment ar : assignments) {
         runAntInRoom(ant, ar);
       }
@@ -258,8 +206,6 @@ public class DefaultAntService implements IAntService {
     antRunRepository.create(run);
 
     try {
-      // Determine whether room changed.
-      // We consider the room "changed" if the latest message id differs from lastSeenMessageId.
       var page = messageRepository.listByRoom(roomId, 1, null);
       String latestMessageId = page.items().isEmpty() ? null : page.items().get(0).id();
       boolean roomChanged = latestMessageId != null && !latestMessageId.equals(assignment.lastSeenMessageId());
@@ -271,25 +217,18 @@ public class DefaultAntService implements IAntService {
         return;
       }
 
-      // --- AI call placeholder ---
-      // For now, generate a deterministic message so you can validate end-to-end scheduling + SSE.
-      // Later this will call OpenAI via a provider abstraction.
-      //
-      // !!! SAFETY/ABUSE NOTE (do not delete):
-      // When you plug in real models, you must treat user-controlled room content and persona prompts
-      // as untrusted input. Prompt injection and spam are real. Add rate limits, moderation hooks,
-      // and make sure you never execute tools/actions unless explicitly allowed.
-      String content = "[" + ant.name() + "] " + "I’m alive. Latest message=" + (latestMessageId == null ? "<none>" : latestMessageId);
+      IAntModelRunner runner = antScheduler.getRunner(ant.model());
+      String content = runner.generateMessage(ant, roomId);
+      if (content == null || content.isBlank()) {
+        throw new IllegalStateException("Model runner returned blank content model=" + ant.model());
+      }
 
       Message msg = Message.createAntMsg(roomId, ant.id(), content);
       messageRepository.create(msg);
-
-      // Broadcast via SSE (reuse RoomController static emitter map)
       RoomController.broadcastMessage(roomId, msg);
 
       AntRun finished = run.succeeded("Posted message to room. roomChanged=" + roomChanged);
       antRunRepository.update(finished);
-
       assignmentRepository.update(assignment.withLastSeen(latestMessageId, Instant.now()));
 
     } catch (Exception e) {
@@ -314,6 +253,7 @@ public class DefaultAntService implements IAntService {
         a.id(),
         a.ownerUserId(),
         a.name(),
+        a.model(),
         a.personalityPrompt(),
         a.intervalSeconds(),
         a.enabled(),

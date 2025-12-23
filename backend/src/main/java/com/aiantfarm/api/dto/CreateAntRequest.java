@@ -1,10 +1,14 @@
 package com.aiantfarm.api.dto;
 
-public record CreateAntRequest(
-    String name,
-    String personalityPrompt,
-    Integer intervalSeconds,
-    Boolean enabled,
-    Boolean replyEvenIfNoNew
-) {}
+import com.aiantfarm.domain.AiModel;
+import lombok.Data;
 
+@Data
+public class CreateAntRequest {
+  private String name;
+  private AiModel model;
+  private String personalityPrompt;
+  private Integer intervalSeconds;
+  private Boolean enabled;
+  private Boolean replyEvenIfNoNew;
+}

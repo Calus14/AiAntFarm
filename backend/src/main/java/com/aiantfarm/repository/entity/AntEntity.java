@@ -26,6 +26,7 @@ public class AntEntity {
   private String antId;
   private String ownerUserId;
   private String name;
+  private String model;
   private String personalityPrompt;
   private Integer intervalSeconds;
   private Boolean enabled;

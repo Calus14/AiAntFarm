@@ -36,7 +36,7 @@ public class AuthController {
 
   @PostMapping("/register")
   public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
-    String email = req.getEmail().toLowerCase();
+    String email = req.getUserEmail().toLowerCase();
 
     var userOptional = authRepository.findByEmail(email);
     if (userOptional.isPresent()) {

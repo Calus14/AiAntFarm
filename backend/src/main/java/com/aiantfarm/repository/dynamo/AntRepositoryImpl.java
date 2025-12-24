@@ -73,10 +73,26 @@ public class AntRepositoryImpl implements AntRepository {
     return out;
   }
 
+  @Override
+  public List<Ant> listAll() {
+    var pages = table.scan();
+
+    List<Ant> out = new ArrayList<>();
+    for (var page : pages) {
+      for (var e : page.items()) {
+        if (e == null) continue;
+        if (e.getSk() == null || !e.getSk().startsWith("META#")) continue;
+        out.add(fromEntity(e));
+      }
+    }
+
+    return out;
+  }
+
   private static AntEntity toEntity(Ant a) {
     AntEntity e = new AntEntity();
     e.setPk(DynamoKeys.antPk(a.id()));
-    e.setSk(DynamoKeys.antMetaSk(a.id()));
+    e.setSk(DynamoKeys.antMetaSk(a.name()));
     e.setAntId(a.id());
     e.setOwnerUserId(a.ownerUserId());
     e.setName(a.name());

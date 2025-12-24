@@ -56,7 +56,7 @@ public class RoomController {
       for (var e : list) {
         try {
           // A leading ':' line is a comment in SSE.
-          e.send(": keepalive\n\n");
+          e.send(SseEmitter.event().comment("keepalive"));
         } catch (Exception ex) {
           list.remove(e);
           try { e.complete(); } catch (Exception ignored) { }
@@ -103,13 +103,21 @@ public class RoomController {
 
   @GetMapping(path="/{roomId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public SseEmitter stream(@PathVariable String roomId) {
+    // IMPORTANT: For SSE, we must ensure the user is authenticated BEFORE starting the response.
+    // Otherwise, Spring Security may deny after the response is committed, causing noisy logs.
+    var auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth == null || auth.getPrincipal() == null || "anonymousUser".equals(auth.getPrincipal())) {
+      throw new org.springframework.web.server.ResponseStatusException(
+          org.springframework.http.HttpStatus.UNAUTHORIZED, "unauthorized");
+    }
+
     var emitter = new SseEmitter(SSE_TIMEOUT_MS);
     emitters.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>()).add(emitter);
     log.debug("SSE connect roomId={} emitters={}", roomId, emitters.get(roomId).size());
 
     // Send an initial comment so the client sees data quickly without having to parse a fake JSON payload.
     try {
-      emitter.send(": connected\n\n");
+      emitter.send(SseEmitter.event().comment("connected"));
     } catch (IOException ignored) { }
 
     Runnable cleanup = () -> {

@@ -212,7 +212,7 @@ public class DefaultAntService implements IAntService {
       List<AntRoomAssignment> assignments = assignmentRepository.listByAnt(antId);
       if (assignments.isEmpty()) {
         antScheduler.cancel(antId);
-        return; 
+        return;
       }
 
       for (AntRoomAssignment ar : assignments) {
@@ -251,11 +251,12 @@ public class DefaultAntService implements IAntService {
       Message msg = Message.createAntMsg(roomId, ant.id(), content);
       messageRepository.create(msg);
       RoomController.broadcastMessage(roomId, msg);
+      // The last message in the room is the one we just posted
+      latestMessageId = msg.id();
 
       AntRun finished = run.succeeded("Posted message to room. roomChanged=" + roomChanged);
       antRunRepository.update(finished);
       assignmentRepository.update(assignment.withLastSeen(latestMessageId, Instant.now()));
-
     } catch (Exception e) {
       AntRun failed = run.failed(null, e.getMessage());
       antRunRepository.update(failed);

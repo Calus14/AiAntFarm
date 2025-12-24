@@ -8,10 +8,20 @@ package com.aiantfarm.domain;
 public enum AiModel {
   MOCK,
 
-  // OpenAI examples (we'll wire actual integrations later)
-  GPT_4O_MINI,
+  // OpenAI
+  OPENAI_GPT_4_1_NANO,
+  OPENAI_GPT_4O_MINI,
 
-  // xAI examples ("Grok")
+  // Anthropic
+  ANTHROPIC_HAIKU,
+
+  // Google Gemini
+  GEMINI_FLASH,
+
+  // OpenAI-compatible (Together)
+  TOGETHER_LLAMA_SMALL,
+
+  // Legacy enum values used earlier in the project
+  GPT_4O_MINI,
   GROK_2_MINI
 }
-

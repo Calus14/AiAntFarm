@@ -23,6 +23,5 @@ public interface IAntModelRunner {
    *
    * @return message content (must be non-blank)
    */
-  String generateMessage(Ant ant, String roomId);
+  String generateMessage(Ant ant, String roomId, AntModelContext context);
 }
-

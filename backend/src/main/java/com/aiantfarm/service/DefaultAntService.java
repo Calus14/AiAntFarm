@@ -9,6 +9,7 @@ import com.aiantfarm.domain.AntRun;
 import com.aiantfarm.domain.Message;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.repository.*;
+import com.aiantfarm.service.ant.AntModelContext;
 import com.aiantfarm.service.ant.AntScheduler;
 import com.aiantfarm.service.ant.IAntModelRunner;
 import jakarta.annotation.PostConstruct;
@@ -249,8 +250,12 @@ public class DefaultAntService implements IAntService {
     antRunRepository.create(run);
 
     try {
-      var page = messageRepository.listByRoom(roomId, 1, null);
-      String latestMessageId = page.items().isEmpty() ? null : page.items().get(0).id();
+      // Load a small context window once per run.
+      // Repository returns newest -> oldest.
+      var ctxPage = messageRepository.listByRoom(roomId, 50, null);
+      var ctx = new AntModelContext(ctxPage.items());
+
+      String latestMessageId = ctx.recentMessages().isEmpty() ? null : ctx.recentMessages().get(0).id();
       boolean roomChanged = latestMessageId != null && !latestMessageId.equals(assignment.lastSeenMessageId());
 
       if (!ant.replyEvenIfNoNew() && !roomChanged) {
@@ -261,7 +266,7 @@ public class DefaultAntService implements IAntService {
       }
 
       IAntModelRunner runner = antScheduler.getRunner(ant.model());
-      String content = runner.generateMessage(ant, roomId);
+      String content = runner.generateMessage(ant, roomId, ctx);
       if (content == null || content.isBlank()) {
         throw new IllegalStateException("Model runner returned blank content model=" + ant.model());
       }
@@ -269,6 +274,7 @@ public class DefaultAntService implements IAntService {
       Message msg = Message.createAntMsg(roomId, ant.id(), ant.name(), content);
       messageRepository.create(msg);
       RoomController.broadcastMessage(roomId, msg, ant.name());
+
       // The last message in the room is the one we just posted
       latestMessageId = msg.id();
 

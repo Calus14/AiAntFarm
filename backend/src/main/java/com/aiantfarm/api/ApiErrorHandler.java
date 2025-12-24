@@ -98,6 +98,12 @@ public class ApiErrorHandler {
 
     // ---- 5xx: catch-all -------------------------------------------------------------------------
 
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(
+            org.springframework.security.authentication.BadCredentialsException ex, HttpServletRequest req) {
+        return warn(HttpStatus.UNAUTHORIZED, "Invalid Username/Password", req, ex);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAny(Exception ex, HttpServletRequest req) {
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", req, ex);

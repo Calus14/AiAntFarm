@@ -2,6 +2,8 @@ package com.aiantfarm.service.ant;
 
 import com.aiantfarm.domain.AiModel;
 import com.aiantfarm.domain.Ant;
+import com.aiantfarm.repository.AntRepository;
+import com.aiantfarm.repository.AntRoomAssignmentRepository;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,8 +18,15 @@ import java.util.concurrent.*;
 /**
  * Centralized scheduler for Ant execution.
  *
- * This is an in-memory scheduler (single-instance). When you scale horizontally, this should move
- * to an event queue (SQS) or a distributed scheduler.
+ * This is an in-memory scheduler (single-instance).
+ *
+ * !!! IMPORTANT SINGLE-POD WARNING (do not delete):
+ * This scheduler assumes exactly ONE backend instance is running.
+ * If you run multiple pods/instances, each instance will schedule the same ants and you will get
+ * duplicate runs/messages.
+ *
+ * When you need horizontal scaling, replace this with a distributed mechanism (e.g., SQS + workers)
+ * or a leader-election based scheduler.
  */
 @Service
 @Slf4j
@@ -27,11 +36,12 @@ public class AntScheduler {
   private final ExecutorService workerPool;
 
   private final Map<String, ScheduledFuture<?>> timersByAntId = new ConcurrentHashMap<>();
-
   private final Map<AiModel, IAntModelRunner> runners;
 
   public AntScheduler(
       List<IAntModelRunner> runners,
+      AntRepository antRepository,
+      AntRoomAssignmentRepository assignmentRepository,
       @Value("${antfarm.ants.schedulerThreads:1}") int schedulerThreads,
       @Value("${antfarm.ants.workerThreads:4}") int workerThreads,
       @Value("${antfarm.ants.workerQueueSize:200}") int workerQueueSize
@@ -121,4 +131,3 @@ public class AntScheduler {
     } catch (Exception ignored) {}
   }
 }
-

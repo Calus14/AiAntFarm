@@ -12,16 +12,17 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.util.Optional;
 
+import static com.aiantfarm.utils.DynamoIndexes.GSI_EMAIL;
+
 public class AuthCredentialsRepositoryImpl implements AuthCredentialsRepository {
 
   private final DynamoDbTable<AuthCredentialsEntity> table;
   private final DynamoDbIndex<AuthCredentialsEntity> userEmailIndex;
 
-  private static final String EMAIL_INDEX = "GSI_Email";
 
   public AuthCredentialsRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(AuthCredentialsEntity.class));
-    this.userEmailIndex = table.index(EMAIL_INDEX);
+    this.userEmailIndex = table.index(GSI_EMAIL);
   }
 
   private static AuthCredentialsEntity withKeys(AuthCredentialsEntity entity, String userId) {

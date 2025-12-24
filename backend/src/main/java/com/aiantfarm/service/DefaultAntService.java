@@ -11,6 +11,7 @@ import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.repository.*;
 import com.aiantfarm.service.ant.AntScheduler;
 import com.aiantfarm.service.ant.IAntModelRunner;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +45,34 @@ public class DefaultAntService implements IAntService {
     this.roomRepository = roomRepository;
     this.messageRepository = messageRepository;
     this.antScheduler = antScheduler;
+  }
+
+  @PostConstruct
+  void warmStartAntSchedules() {
+    // !!! IMPORTANT SINGLE-POD WARNING (do not delete):
+    // This is an in-memory scheduler bootstrap. On app restart we reschedule ants from Dynamo.
+    // If you run multiple backend instances, EACH instance will reschedule ants and you will get
+    // duplicate runs/messages.
+    //
+    // When we scale horizontally, we must replace this with a distributed scheduler (e.g., SQS).
+
+    try {
+      List<Ant> ants = antRepository.listAll();
+      int scheduled = 0;
+
+      for (Ant ant : ants) {
+        if (ant == null) continue;
+        if (!ant.enabled()) continue;
+        if (assignmentRepository.listByAnt(ant.id()).isEmpty()) continue;
+
+        ensureScheduledIfAssigned(ant);
+        scheduled++;
+      }
+
+      log.info("Warm-start scheduled ants={} (scanned={})", scheduled, ants.size());
+    } catch (Exception e) {
+      log.error("Warm-start scheduling failed", e);
+    }
   }
 
   @Override
@@ -169,10 +198,6 @@ public class DefaultAntService implements IAntService {
   // --- scheduling ---
 
   private void ensureScheduledIfAssigned(Ant ant) {
-    if (assignmentRepository.listByAnt(ant.id()).isEmpty()) {
-      return;
-    }
-
     antScheduler.scheduleOrReschedule(ant, () -> runAntTick(ant.id()));
   }
 
@@ -187,7 +212,7 @@ public class DefaultAntService implements IAntService {
       List<AntRoomAssignment> assignments = assignmentRepository.listByAnt(antId);
       if (assignments.isEmpty()) {
         antScheduler.cancel(antId);
-        return;
+        return; 
       }
 
       for (AntRoomAssignment ar : assignments) {
@@ -289,4 +314,6 @@ public class DefaultAntService implements IAntService {
         lastRunAtMs
     );
   }
+
+
 }

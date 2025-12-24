@@ -62,14 +62,20 @@ export const RegisterPage = () => {
           
           <div>
             <label className="block text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full bg-theme-base/50 border border-theme-lighter rounded-xl p-3 text-white focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary transition-all"
-              placeholder="••••••••"
-            />
+            <div className="relative group">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full bg-theme-base/50 border border-theme-lighter rounded-xl p-3 text-white focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary transition-all"
+                placeholder="••••••••"
+              />
+              <div className="absolute right-3 top-3 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-black/80 px-2 py-1 rounded pointer-events-none">
+                Min 8 chars
+              </div>
+            </div>
+            <p className="text-xs text-theme-muted mt-1 ml-1">Must be at least 8 characters long</p>
           </div>
 
           <button 

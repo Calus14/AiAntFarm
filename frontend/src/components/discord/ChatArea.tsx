@@ -38,7 +38,11 @@ export const ChatArea = () => {
         const res = await apiClient.get<RoomDetailDto>(`/api/v1/rooms/${roomId}`);
         const detail = mapRoomDetailDto(res.data);
         setRoom(detail);
-        setMessages(detail.messages || []);
+        // Sort messages by date (oldest first) to ensure correct order
+        const sortedMessages = (detail.messages || []).sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        setMessages(sortedMessages);
 
         // 2. Connect to stream using fetch to support Authorization header
         setLoading(false);
@@ -60,7 +64,7 @@ export const ChatArea = () => {
                 return [...prev, mapped];
               });
             } catch (e) {
-              console.error('Error parsing stream message', e);
+              console.error('Error parsing stream message', e, 'Raw data:', raw);
             }
           },
         });

@@ -195,6 +195,21 @@ public class DefaultAntService implements IAntService {
     return new ListResponse<>(items);
   }
 
+  @Override
+  public void runNow(String ownerUserId, String antId) {
+    // Validate ownership and existence
+    Ant ant = requireOwnedAnt(ownerUserId, antId);
+
+    // If there are no assignments, nothing to run.
+    if (assignmentRepository.listByAnt(antId).isEmpty()) {
+      return;
+    }
+
+    // Run immediately (synchronously) using the same logic as scheduled ticks.
+    // This has the same SINGLE-POD semantics as the in-memory scheduler.
+    runAntTick(antId);
+  }
+
   // --- scheduling ---
 
   private void ensureScheduledIfAssigned(Ant ant) {
@@ -203,6 +218,7 @@ public class DefaultAntService implements IAntService {
 
   private void runAntTick(String antId) {
     try {
+      log.info("Ant tick started antId={}", antId);
       Ant ant = antRepository.findById(antId).orElse(null);
       if (ant == null || !ant.enabled()) {
         antScheduler.cancel(antId);
@@ -222,10 +238,12 @@ public class DefaultAntService implements IAntService {
     } catch (Exception e) {
       log.error("Unhandled error in ant tick antId={}", antId, e);
     }
+    log.info("Ant tick ended antId={}", antId);
   }
 
   private void runAntInRoom(Ant ant, AntRoomAssignment assignment) {
     String roomId = assignment.roomId();
+    log.info("Running ant in room antId={} roomId={}", ant.id(), roomId);
 
     AntRun run = AntRun.started(ant.id(), ant.ownerUserId(), roomId);
     antRunRepository.create(run);
@@ -248,9 +266,9 @@ public class DefaultAntService implements IAntService {
         throw new IllegalStateException("Model runner returned blank content model=" + ant.model());
       }
 
-      Message msg = Message.createAntMsg(roomId, ant.id(), content);
+      Message msg = Message.createAntMsg(roomId, ant.id(), ant.name(), content);
       messageRepository.create(msg);
-      RoomController.broadcastMessage(roomId, msg);
+      RoomController.broadcastMessage(roomId, msg, ant.name());
       // The last message in the room is the one we just posted
       latestMessageId = msg.id();
 
@@ -317,4 +335,24 @@ public class DefaultAntService implements IAntService {
   }
 
 
+  @Override
+  public void deleteAnt(String ownerUserId, String antId) {
+    Ant ant = requireOwnedAnt(ownerUserId, antId);
+
+    // Cancel scheduler
+    antScheduler.cancel(antId);
+
+    // Remove assignments
+    try {
+      List<AntRoomAssignment> assignments = assignmentRepository.listByAnt(antId);
+      for (AntRoomAssignment a : assignments) {
+        assignmentRepository.unassign(antId, a.roomId());
+      }
+    } catch (Exception e) {
+      log.warn("Failed to remove assignments for antId={} (continuing)", antId, e);
+    }
+
+    // Delete runs? not required now; AntRun can remain for audit, but we delete the ant meta
+    antRepository.delete(antId);
+  }
 }

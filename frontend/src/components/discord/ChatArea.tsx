@@ -9,6 +9,7 @@ import { streamSse } from '../../api/sse';
 import { SseEnvelopeType } from '../../api/enums';
 import { MessageItem } from './MessageItem';
 import { MessageInput } from './MessageInput';
+import { AntsModal } from './AntsModal';
 
 export const ChatArea = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -16,6 +17,7 @@ export const ChatArea = () => {
   const [room, setRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAntsModal, setShowAntsModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -29,55 +31,106 @@ export const ChatArea = () => {
   useEffect(() => {
     if (!roomId) return;
 
-    const controller = new AbortController();
+    // Switching rooms must reset local state; otherwise we merge the next room's
+    // messages into the previous room's list.
+    setRoom(null);
+    setMessages([]);
+    setLoading(true);
 
-    const connectStream = async () => {
-      setLoading(true);
+    const controller = new AbortController();
+    let isMounted = true;
+    let retryCount = 0;
+
+    const fetchRoomState = async () => {
       try {
-        // 1. Fetch initial room data (standard call, uses interceptor)
         const res = await apiClient.get<RoomDetailDto>(`/api/v1/rooms/${roomId}`);
         const detail = mapRoomDetailDto(res.data);
+        
+        if (!isMounted) return;
+        
         setRoom(detail);
-        // Sort messages by date (oldest first) to ensure correct order
-        const sortedMessages = (detail.messages || []).sort((a, b) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-        setMessages(sortedMessages);
-
-        // 2. Connect to stream using fetch to support Authorization header
-        setLoading(false);
-        await streamSse(getStreamUrl(roomId), {
-          headers: { ...getAuthHeader() } as HeadersInit,
-          signal: controller.signal,
-          onEvent: (ev) => {
-            const raw = (ev.data || '').trim();
-            if (!raw || raw === '{}' || raw === 'null') return;
-            try {
-              const envelope = JSON.parse(raw) as { type?: string; payload?: MessageDto };
-              // ignore non-message envelope types
-              if (envelope.type && envelope.type !== SseEnvelopeType.Message) return;
-              const dto = envelope.payload;
-              if (!dto) return;
-              const mapped = mapMessageDto(dto);
-              setMessages((prev) => {
-                if (prev.some((m) => m.messageId === mapped.messageId)) return prev;
-                return [...prev, mapped];
-              });
-            } catch (e) {
-              console.error('Error parsing stream message', e, 'Raw data:', raw);
-            }
-          },
+        const incomingMessages = (detail.messages || []);
+        
+        setMessages(prev => {
+          const existing = new Map(prev.map(m => [m.messageId, m]));
+          incomingMessages.forEach(m => existing.set(m.messageId, m));
+          return Array.from(existing.values()).sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
         });
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        console.error('Stream connection failed', err);
-        setLoading(false);
+        console.error('Failed to fetch room state', err);
+        throw err;
       }
     };
 
-    connectStream();
+    const connectLoop = async () => {
+      setLoading(true);
+      
+      // Initial fetch
+      try {
+        await fetchRoomState();
+        if (isMounted) setLoading(false);
+      } catch (err) {
+        // If initial fetch fails, we continue to retry loop
+      }
+
+      while (isMounted && !controller.signal.aborted) {
+        try {
+          await streamSse(getStreamUrl(roomId), {
+            headers: { ...getAuthHeader() } as HeadersInit,
+            signal: controller.signal,
+            onEvent: (ev) => {
+              const raw = (ev.data || '').trim();
+              if (!raw || raw === '{}' || raw === 'null') return;
+              try {
+                const envelope = JSON.parse(raw) as { type?: string; payload?: MessageDto };
+                if (envelope.type && envelope.type !== SseEnvelopeType.Message) return;
+                const dto = envelope.payload;
+                if (!dto) return;
+                const mapped = mapMessageDto(dto);
+                setMessages((prev) => {
+                  if (prev.some((m) => m.messageId === mapped.messageId)) return prev;
+                  return [...prev, mapped];
+                });
+              } catch (e) {
+                console.error('Error parsing stream message', e, 'Raw data:', raw);
+              }
+            },
+          });
+          
+          // If streamSse returns normally, reset retry count
+          retryCount = 0;
+          
+        } catch (err: any) {
+          if (controller.signal.aborted || err.name === 'AbortError') break;
+          
+          if (err.name === 'SseError' && err.status === 401) {
+             console.error("SSE Unauthorized, stopping retry");
+             break;
+          }
+
+          console.error('SSE Error, retrying...', err);
+        }
+
+        if (controller.signal.aborted) break;
+
+        // Backoff
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        retryCount++;
+
+        // Catch-up before reconnecting
+        if (isMounted && !controller.signal.aborted) {
+             await fetchRoomState().catch(() => {});
+        }
+      }
+    };
+
+    connectLoop();
 
     return () => {
+      isMounted = false;
       controller.abort();
     };
   }, [roomId]);
@@ -94,13 +147,21 @@ export const ChatArea = () => {
   return (
     <div className="flex-1 flex flex-col bg-theme-base h-full relative overflow-hidden">
       {/* Header - Always visible */}
-      <header className="h-16 border-b border-white/5 flex items-center px-6 shrink-0 backdrop-blur-md bg-theme-base/50 sticky top-0 z-20">
+      <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 shrink-0 backdrop-blur-md bg-theme-base/50 sticky top-0 z-20">
         <div className="flex items-center gap-3">
           <span className="text-theme-muted text-2xl font-light">#</span>
           <h1 className="font-bold text-theme-primary tracking-tight">
             {room?.name || 'Loading...'}
           </h1>
         </div>
+        
+        <button 
+          onClick={() => setShowAntsModal(true)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-theme-primary/10 text-theme-primary hover:bg-theme-primary/20 transition-colors text-sm font-medium"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>Ants</span>
+        </button>
       </header>
 
       {/* Messages Area */}
@@ -140,6 +201,10 @@ export const ChatArea = () => {
           placeholder={room ? `Message #${room.name}` : "Connecting..."}
         />
       </div>
+
+      {showAntsModal && roomId && (
+        <AntsModal roomId={roomId} onClose={() => setShowAntsModal(false)} />
+      )}
     </div>
   );
 };

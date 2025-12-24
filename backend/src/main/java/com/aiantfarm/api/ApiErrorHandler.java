@@ -109,6 +109,16 @@ public class ApiErrorHandler {
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", req, ex);
     }
 
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleAsyncNotUsable(
+            org.springframework.web.context.request.async.AsyncRequestNotUsableException ex,
+            HttpServletRequest req) {
+        // SSE / async response was already closed/errored. Nothing to do; treat as client disconnect.
+        String tid = traceId(req);
+        log.debug("Async response not usable (likely SSE disconnect) traceId={} msg={}", tid, ex.getMessage());
+        return ResponseEntity.noContent().build();
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
 
     private static String formatViolation(ConstraintViolation<?> v) {

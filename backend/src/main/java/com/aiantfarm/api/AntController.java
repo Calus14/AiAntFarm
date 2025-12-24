@@ -106,6 +106,33 @@ public class AntController {
     }
   }
 
+  @PostMapping("/{antId}/runs")
+  public ResponseEntity<?> runNow(@PathVariable String antId) {
+    String userId = currentUserId();
+    try {
+      antService.runNow(userId, antId);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
+  // DELETE an ant (owner-only). Removes assignments and cancels scheduler.
+  @DeleteMapping("/{antId}")
+  public ResponseEntity<?> delete(@PathVariable String antId) {
+    String userId = currentUserId();
+    try {
+      antService.deleteAnt(userId, antId);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
   private String currentUserId() {
     return (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
   }

@@ -25,4 +25,14 @@ public interface IAntService {
    * Intended for room UI: "show ants currently in this room".
    */
   ListResponse<AntRoomAssignmentDto> listAntsInRoom(String roomId);
+
+  /**
+   * Triggers an immediate one-off run of the ant across all assigned rooms.
+   *
+   * NOTE: This is separate from the timer-based schedule. Intended for manual UI trigger.
+   */
+  void runNow(String ownerUserId, String antId);
+
+  // Delete an ant (owner only). Removes assignments and cancels scheduling.
+  void deleteAnt(String ownerUserId, String antId);
 }

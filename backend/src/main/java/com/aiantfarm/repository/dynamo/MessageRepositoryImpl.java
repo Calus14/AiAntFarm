@@ -39,7 +39,8 @@ public class MessageRepositoryImpl implements MessageRepository {
     e.setRoomId(m.roomId());
     e.setMessageIdGSI(m.id());
     e.setAuthorType(m.authorType() != null ? m.authorType().name() : AuthorType.USER.name());
-    e.setAuthorUserId(m.authorUserId());
+    e.setAuthorId(m.authorId());
+    e.setAuthorName(m.authorName());
     e.setContent(m.content());
     e.setCreatedAt(m.createdAt());
     return e;
@@ -50,7 +51,8 @@ public class MessageRepositoryImpl implements MessageRepository {
         e.getMessageIdGSI(),
         e.getRoomId(),
         e.getAuthorType() != null ? AuthorType.valueOf(e.getAuthorType()) : AuthorType.USER,
-        e.getAuthorUserId(),
+        e.getAuthorId(),
+        e.getAuthorName(),
         e.getContent(),
         e.getCreatedAt() != null ? e.getCreatedAt() : Instant.EPOCH
     );

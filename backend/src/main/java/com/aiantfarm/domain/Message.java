@@ -38,6 +38,10 @@ public record Message(
     return new Message(UUID.randomUUID().toString(), roomId, AuthorType.ANT, null, content, Instant.now());
   }
 
+  public static Message createAntMsg(String roomId, String antId, String content) {
+    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.ANT, antId, content, Instant.now());
+  }
+
   public static Message createSystemMsg(String roomId, String content) {
     return new Message(UUID.randomUUID().toString(), roomId, AuthorType.SYSTEM, null, content, Instant.now());
   }

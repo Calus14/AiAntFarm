@@ -11,6 +11,10 @@ app:
 antfarm:
   tables:
     main: ${ANTFARM_DDB_TABLE:AiAntFarmTable}
+  ants:
+    schedulerThreads: ${ANTFARM_ANTS_SCHEDULER_THREADS:1}
+    workerThreads: ${ANTFARM_ANTS_WORKER_THREADS:4}
+    workerQueueSize: ${ANTFARM_ANTS_WORKER_QUEUE_SIZE:200}
 
 spring:
   cloud:

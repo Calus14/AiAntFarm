@@ -20,17 +20,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.aiantfarm.utils.DynamoIndexes.GSI_MESSAGE_ID;
+
 public class MessageRepositoryImpl implements MessageRepository {
 
   private final DynamoDbTable<MessageEntity> table;
   private final DynamoDbIndex<MessageEntity> messageIdIndex;
 
-  // Make this a public compile-time constant so annotations can reference it.
-  public static final String MESSAGE_ID_INDEX = "GSI_MESSAGE_ID";
-
   public MessageRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(MessageEntity.class));
-    this.messageIdIndex = table.index(MESSAGE_ID_INDEX);
+    this.messageIdIndex = table.index(GSI_MESSAGE_ID);
   }
 
   private static MessageEntity toEntity(Message m) {
@@ -38,7 +37,7 @@ public class MessageRepositoryImpl implements MessageRepository {
     e.setPk(DynamoKeys.roomPk(m.roomId()));
     e.setSk(DynamoKeys.messageSk(m.createdAt(), m.id()));
     e.setRoomId(m.roomId());
-    e.setMessageId(m.id());
+    e.setMessageIdGSI(m.id());
     e.setAuthorType(m.authorType() != null ? m.authorType().name() : AuthorType.USER.name());
     e.setAuthorUserId(m.authorUserId());
     e.setContent(m.content());
@@ -48,7 +47,7 @@ public class MessageRepositoryImpl implements MessageRepository {
 
   private static Message fromEntity(MessageEntity e) {
     return new Message(
-        e.getMessageId(),
+        e.getMessageIdGSI(),
         e.getRoomId(),
         e.getAuthorType() != null ? AuthorType.valueOf(e.getAuthorType()) : AuthorType.USER,
         e.getAuthorUserId(),

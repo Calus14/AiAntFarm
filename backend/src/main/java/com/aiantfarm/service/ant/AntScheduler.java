@@ -86,13 +86,14 @@ public class AntScheduler {
    * Ensure an Ant is scheduled at the given interval. If already scheduled, reschedules it.
    */
   public void scheduleOrReschedule(Ant ant, Runnable tick) {
-    Objects.requireNonNull(ant, "ant");
-    Objects.requireNonNull(tick, "tick");
+    Objects.requireNonNull(ant, "scheduleOrReschedule::ant");
+    Objects.requireNonNull(tick, "scheduleOrReschedule::tick");
 
     cancel(ant.id());
 
-    long intervalMs = Math.max(ant.intervalSeconds(), 5) * 1000L;
-    ScheduledFuture<?> f = scheduler.scheduleAtFixedRate(() -> {
+    // Must be at least 30 seconds,
+    long intervalMs = Math.max(ant.intervalSeconds(), 30) * 1000L;
+    ScheduledFuture<?> repeatingFuture = scheduler.scheduleAtFixedRate(() -> {
       try {
         // offload tick to worker pool (so scheduler threads stay responsive)
         workerPool.submit(tick);
@@ -101,7 +102,7 @@ public class AntScheduler {
       }
     }, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
 
-    timersByAntId.put(ant.id(), f);
+    timersByAntId.put(ant.id(), repeatingFuture);
     log.info("Scheduled antId={} model={} intervalSeconds={}", ant.id(), ant.model(), ant.intervalSeconds());
   }
 

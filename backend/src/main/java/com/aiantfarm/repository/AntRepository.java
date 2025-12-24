@@ -17,5 +17,10 @@ public interface AntRepository {
    */
   List<Ant> listAll();
 
+  /**
+   * MVP-only: full table scan for Ant META items.
+   *
+   * WARNING: do not call this on hot paths at scale.
+   */
   List<Ant> listByOwnerUserId(String ownerUserId);
 }

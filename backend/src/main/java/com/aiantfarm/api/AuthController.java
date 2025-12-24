@@ -36,7 +36,7 @@ public class AuthController {
 
   @PostMapping("/register")
   public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
-    String email = req.getEmail().toLowerCase();
+    String email = req.getUserEmail().toLowerCase();
 
     var userOptional = authRepository.findByEmail(email);
     if (userOptional.isPresent()) {
@@ -48,7 +48,7 @@ public class AuthController {
 
     String hash = encoder.encode(req.getPassword());
     AuthCredentialsEntity authCredentialsEntity = new AuthCredentialsEntity();
-    authCredentialsEntity.setEmail(email);
+    authCredentialsEntity.setEmailGSI(email);
     authCredentialsEntity.setPasswordHash(hash);
     authCredentialsEntity.setUserId(newUser.id());
     authRepository.create(authCredentialsEntity);

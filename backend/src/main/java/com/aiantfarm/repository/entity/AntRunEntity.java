@@ -1,10 +1,9 @@
 package com.aiantfarm.repository.entity;
 
 import lombok.Data;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
+
+import static com.aiantfarm.utils.DynamoIndexes.GSI_ANT_ID;
 
 @Data
 @DynamoDbBean
@@ -32,5 +31,8 @@ public class AntRunEntity {
 
   @DynamoDbSortKey
   public String getSk() { return sk; }
+
+  @DynamoDbSecondaryPartitionKey(indexNames = {GSI_ANT_ID})
+  public String getAntIdGSI() { return antIdGSI; }
 }
 

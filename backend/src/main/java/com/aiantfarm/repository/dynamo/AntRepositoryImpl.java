@@ -5,23 +5,25 @@ import com.aiantfarm.domain.Ant;
 import com.aiantfarm.repository.AntRepository;
 import com.aiantfarm.repository.entity.AntEntity;
 import com.aiantfarm.utils.DynamoKeys;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.Key;
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.*;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.aiantfarm.utils.DynamoIndexes.GSI_ANT_ID;
+
 public class AntRepositoryImpl implements AntRepository {
 
   private final DynamoDbTable<AntEntity> table;
+  private final DynamoDbIndex<AntEntity> antIndex;
 
 
   public AntRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(AntEntity.class));
+    this.antIndex = table.index(GSI_ANT_ID);
   }
 
   @Override
@@ -40,12 +42,26 @@ public class AntRepositoryImpl implements AntRepository {
   public Optional<Ant> findById(String antId) {
     if (antId == null || antId.isBlank()) return Optional.empty();
 
-    AntEntity e = table.getItem(r -> r.key(Key.builder()
+    AntEntity direct = table.getItem(r -> r.key(Key.builder()
         .partitionValue(DynamoKeys.antPk(antId))
         .sortValue(DynamoKeys.antMetaSk(antId))
         .build()));
+    if (direct != null) return Optional.of(fromEntity(direct));
 
-    return Optional.ofNullable(e).map(AntRepositoryImpl::fromEntity);
+    // Fallback: query the GSI by antId and return the META item.
+    var res = antIndex.query(r -> r.queryConditional(
+        QueryConditional.keyEqualTo(Key.builder().partitionValue(antId).build())));
+
+    for (var page : res) {
+      for (var e : page.items()) {
+        if (e == null) continue;
+        if (e.getSk() == null || !e.getSk().startsWith("META#")) continue;
+        return Optional.of(fromEntity(e));
+      }
+      break;
+    }
+
+    return Optional.empty();
   }
 
   @Override
@@ -93,7 +109,7 @@ public class AntRepositoryImpl implements AntRepository {
     AntEntity e = new AntEntity();
     e.setPk(DynamoKeys.antPk(a.id()));
     e.setSk(DynamoKeys.antMetaSk(a.name()));
-    e.setAntId(a.id());
+    e.setAntIdGSI(a.id());
     e.setOwnerUserId(a.ownerUserId());
     e.setName(a.name());
     e.setModel((a.model() == null ? AiModel.MOCK : a.model()).name());
@@ -118,7 +134,7 @@ public class AntRepositoryImpl implements AntRepository {
     }
 
     return new Ant(
-        e.getAntId(),
+        e.getAntIdGSI(),
         e.getOwnerUserId(),
         e.getName(),
         model,
@@ -129,5 +145,34 @@ public class AntRepositoryImpl implements AntRepository {
         createdAt,
         updatedAt
     );
+  }
+
+  // New delete implementation
+  @Override
+  public void delete(String antId) {
+    if (antId == null || antId.isBlank()) return;
+
+    // Try to find the META item via the GSI_ANT_ID
+    var pages = antIndex.query(r -> r.queryConditional(QueryConditional.keyEqualTo(Key.builder().partitionValue(antId).build())));
+    for (var page : pages) {
+      for (var e : page.items()) {
+        if (e == null) continue;
+        if (e.getSk() != null && e.getSk().startsWith("META#")) {
+          // delete by stored PK/SK
+          table.deleteItem(d -> d.key(Key.builder().partitionValue(e.getPk()).sortValue(e.getSk()).build()));
+          return;
+        }
+      }
+      break;
+    }
+
+    // Fallback: best effort delete using constructed keys
+    try {
+      table.deleteItem(d -> d.key(Key.builder()
+          .partitionValue(DynamoKeys.antPk(antId))
+          .sortValue(DynamoKeys.antMetaSk(antId))
+          .build()));
+    } catch (Exception ignored) {
+    }
   }
 }

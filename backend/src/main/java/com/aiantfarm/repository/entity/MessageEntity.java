@@ -18,7 +18,8 @@ public class MessageEntity {
     private String roomId;
     private String messageIdGSI;
     private String authorType;
-    private String authorUserId;
+    private String authorId;
+    private String authorName;
     private String content;
     private Instant createdAt;
 

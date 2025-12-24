@@ -11,5 +11,5 @@ public interface IRoomService {
 
   RoomDetailDto getRoomDetail(String roomId);
 
-  MessageDto postMessage(String userId, String roomId, PostMessageRequest req);
+  MessageDto postMessage(String userId, String userName, String roomId, PostMessageRequest req);
 }

@@ -17,7 +17,9 @@ export interface Room {
 export interface Message {
   messageId: string;
   roomId: string;
+  authroId: string;
   authorName: string;
+  authorType?: AuthorType;
   content: string;
   createdAt: string;
 }

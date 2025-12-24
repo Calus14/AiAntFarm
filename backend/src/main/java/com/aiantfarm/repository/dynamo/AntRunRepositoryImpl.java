@@ -5,22 +5,23 @@ import com.aiantfarm.domain.AntRunStatus;
 import com.aiantfarm.repository.AntRunRepository;
 import com.aiantfarm.repository.entity.AntRunEntity;
 import com.aiantfarm.utils.DynamoKeys;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.Key;
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.aiantfarm.utils.DynamoIndexes.GSI_ANT_ID;
+
 public class AntRunRepositoryImpl implements AntRunRepository {
 
   private final DynamoDbTable<AntRunEntity> table;
+  private final DynamoDbIndex<AntRunEntity> antIndex;
 
   public AntRunRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(AntRunEntity.class));
+    this.antIndex = table.index(GSI_ANT_ID);
   }
 
   @Override
@@ -41,9 +42,9 @@ public class AntRunRepositoryImpl implements AntRunRepository {
 
     int pageSize = limit <= 0 ? 50 : limit;
 
-    var res = table.query(r -> {
-      r.queryConditional(QueryConditional.sortBeginsWith(
-          Key.builder().partitionValue(DynamoKeys.antPk(antId)).sortValue("RUN#").build()));
+    // Query the GSI by antId, then filter to RUN items (sk starts with RUN#)
+    var res = antIndex.query(r -> {
+      r.queryConditional(QueryConditional.keyEqualTo(Key.builder().partitionValue(antId).build()));
       r.limit(pageSize);
       r.scanIndexForward(false);
     });
@@ -51,6 +52,8 @@ public class AntRunRepositoryImpl implements AntRunRepository {
     List<AntRun> out = new ArrayList<>();
     for (var page : res) {
       for (var e : page.items()) {
+        if (e == null) continue;
+        if (e.getSk() == null || !e.getSk().startsWith("RUN#")) continue;
         out.add(fromEntity(e));
       }
       break;
@@ -93,4 +96,3 @@ public class AntRunRepositoryImpl implements AntRunRepository {
     );
   }
 }
-

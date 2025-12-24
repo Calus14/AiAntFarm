@@ -23,4 +23,8 @@ public interface AntRepository {
    * WARNING: do not call this on hot paths at scale.
    */
   List<Ant> listByOwnerUserId(String ownerUserId);
+
+  // Delete an ant by id (best-effort). Removes the META item.
+  void delete(String antId);
 }
+

@@ -23,9 +23,9 @@ export const RoomListSidebar = () => {
       // Map backend fields to frontend Room shape (ownerId -> createdBy, default createdAt)
       const normalized: Room[] = (rawItems || []).map((r: any) => ({
         roomId: r.roomId ?? r.id ?? '',
-        name: r.name ?? r.channelName ?? 'Untitled',
-        ownerId: r.ownerId ?? r.ownerId ?? '',
-        createdAt: r.createdAt ?? r.createdAt ?? new Date().toISOString(),
+        name: r.name ?? 'Untitled',
+        ownerId: r.ownerId ?? '',
+        createdAt: r.createdAt ?? new Date().toISOString(),
       }));
 
       setRooms(normalized);
@@ -50,11 +50,11 @@ export const RoomListSidebar = () => {
     <>
       <div className="w-64 bg-theme-base flex flex-col h-full overflow-y-auto border-r border-white/5">
         <div className="p-5 shadow-sm bg-theme-base sticky top-0 z-10 flex items-center justify-between group">
-          <h2 className="text-theme-primary font-bold text-xs uppercase tracking-widest">Channels</h2>
+          <h2 className="text-theme-primary font-bold text-xs uppercase tracking-widest">Rooms</h2>
           <button 
             onClick={() => setIsCreateModalOpen(true)}
             className="text-theme-muted hover:text-white transition-colors p-1 rounded hover:bg-theme-lighter"
-            title="Create Channel"
+            title="Create Room"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />

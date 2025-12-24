@@ -1,15 +1,19 @@
 package com.aiantfarm.api;
 
 import com.aiantfarm.api.dto.*;
+import com.aiantfarm.domain.AuthorType;
 import com.aiantfarm.service.IAntService;
 import com.aiantfarm.service.IRoomService;
 import com.aiantfarm.domain.Message;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.exception.RoomAlreadyExistsException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -57,7 +61,12 @@ public class RoomController {
         try {
           // A leading ':' line is a comment in SSE.
           e.send(SseEmitter.event().comment("keepalive"));
+        } catch (AsyncRequestNotUsableException | IllegalStateException ex) {
+          // Normal case: client disconnected / response already closed.
+          list.remove(e);
+          try { e.complete(); } catch (Exception ignored) { }
         } catch (Exception ex) {
+          // Any other send failure -> cleanup emitter.
           list.remove(e);
           try { e.complete(); } catch (Exception ignored) { }
         }
@@ -107,8 +116,8 @@ public class RoomController {
     // Otherwise, Spring Security may deny after the response is committed, causing noisy logs.
     var auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth == null || auth.getPrincipal() == null || "anonymousUser".equals(auth.getPrincipal())) {
-      throw new org.springframework.web.server.ResponseStatusException(
-          org.springframework.http.HttpStatus.UNAUTHORIZED, "unauthorized");
+      throw new ResponseStatusException(
+          HttpStatus.UNAUTHORIZED, "unauthorized");
     }
 
     var emitter = new SseEmitter(SSE_TIMEOUT_MS);
@@ -147,10 +156,15 @@ public class RoomController {
   @PostMapping("/{roomId}/messages")
   public ResponseEntity<?> post(@PathVariable String roomId,
                                 @RequestBody PostMessageRequest req) {
-    String user = currentUserId();
+    String userId = currentUserId();
+    String userDisplayName = currentUserDisplayName();
     try {
-      var dto = roomService.postMessage(user, roomId, req);
-      broadcastEnvelope(roomId, new SseEnvelope<>("message", dto));
+      var dto = roomService.postMessage(userId, userDisplayName, roomId, req);
+
+      // Override senderName for immediate SSE broadcast (room history mapping can stay simple for now).
+      var dtoWithName = new MessageDto(dto.id(), dto.roomId(), dto.ts(), dto.senderType(), dto.senderId(), userDisplayName, dto.text());
+      broadcastEnvelope(roomId, new SseEnvelope<>("message", dtoWithName));
+
       return ResponseEntity.accepted().build();
     } catch (ResourceNotFoundException e) {
       return ResponseEntity.notFound().build();
@@ -164,15 +178,23 @@ public class RoomController {
    * without re-implementing SSE fan-out.
    */
   public static void broadcastMessage(String roomId, Message msg) {
+    broadcastMessage(roomId, msg, null);
+  }
+
+  /**
+   * Broadcast helper that can include a display name for the sender.
+   * For Ant messages, pass the Ant's configured name so the UI can render it.
+   */
+  public static void broadcastMessage(String roomId, Message msg, String senderName) {
     if (roomId == null || roomId.isBlank() || msg == null) return;
 
     String author =
-        msg.authorType() == com.aiantfarm.domain.AuthorType.USER
+        msg.authorType() == AuthorType.USER
             ? "user"
-            : (msg.authorType() == com.aiantfarm.domain.AuthorType.ANT ? "ant" : "system");
+            : (msg.authorType() == AuthorType.ANT ? "ant" : "system");
 
     long tsMs = msg.createdAt().toEpochMilli();
-    var dto = new MessageDto(msg.id(), msg.roomId(), tsMs, author, msg.authorUserId(), msg.content());
+    var dto = new MessageDto(msg.id(), msg.roomId(), tsMs, author, msg.authorId(), senderName, msg.content());
     broadcastEnvelope(roomId, new SseEnvelope<>("message", dto));
   }
 
@@ -183,6 +205,10 @@ public class RoomController {
       try {
         e.send(SseEmitter.event().name(env.type()).data(env));
         sent++;
+      } catch (AsyncRequestNotUsableException | IllegalStateException ex) {
+        // Normal case: client disconnected / response already closed.
+        list.remove(e);
+        try { e.complete(); } catch (Exception ignored) { }
       } catch (Exception ex) {
         list.remove(e);
         try { e.complete(); } catch (Exception ignored) { }
@@ -201,5 +227,12 @@ public class RoomController {
 
   private String currentUserId() {
     return (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+  }
+
+  private String currentUserDisplayName() {
+    var auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth == null) return null;
+    Object details = auth.getDetails();
+    return (details instanceof String s && !s.isBlank()) ? s : null;
   }
 }

@@ -11,7 +11,6 @@ import com.aiantfarm.repository.Page;
 import com.aiantfarm.repository.RoomRepository;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -71,11 +70,11 @@ public class DefaultRoomService implements IRoomService {
   }
 
   @Override
-  public MessageDto postMessage(String userId, String roomId, PostMessageRequest req) {
+  public MessageDto postMessage(String userId, String userName, String roomId, PostMessageRequest req) {
     if (roomRepository.findById(roomId).isEmpty()) {
       throw new ResourceNotFoundException("room not found");
     }
-    var domainMsg = Message.createUserMsg(roomId, userId, req.text());
+    var domainMsg = Message.createUserMsg(roomId, userId, userName, req.text());
     domainMsg = messageRepository.create(domainMsg);
     return toMessageDto(domainMsg);
   }
@@ -92,6 +91,6 @@ public class DefaultRoomService implements IRoomService {
             ? "user"
             : (m.authorType() == AuthorType.ANT ? "ant" : "system");
     long tsMs = m.createdAt().toEpochMilli();
-    return new MessageDto(m.id(), m.roomId(), tsMs, author, m.authorUserId(), m.content());
+    return new MessageDto(m.id(), m.roomId(), tsMs, author, m.authorId(), m.authorName(), m.content());
   }
 }

@@ -1,6 +1,7 @@
 package com.aiantfarm.service.ant.runner.anthropic;
 
 import com.aiantfarm.domain.AiModel;
+import com.aiantfarm.service.ant.runner.PromptTranscriptLogger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,9 +15,10 @@ public class AnthropicHaikuRunner extends AbstractAnthropicRunner {
       @Value("${antfarm.models.anthropic.apiKey:${ANTHROPIC_API_KEY:}}") String apiKey,
       @Value("${antfarm.models.anthropic.temperature:0.7}") double temperature,
       @Value("${antfarm.models.anthropic.maxTokens:256}") int maxTokens,
-      @Value("${antfarm.models.anthropic.model.haiku:claude-3-5-haiku-latest}") String modelId
+      @Value("${antfarm.models.anthropic.model.haiku:claude-3-5-haiku-latest}") String modelId,
+      PromptTranscriptLogger transcriptLogger
   ) {
-    super(apiKey, temperature, maxTokens, modelId);
+    super(apiKey, temperature, maxTokens, modelId, transcriptLogger);
   }
 
   @Override
@@ -24,4 +26,3 @@ public class AnthropicHaikuRunner extends AbstractAnthropicRunner {
     return AiModel.ANTHROPIC_HAIKU;
   }
 }
-

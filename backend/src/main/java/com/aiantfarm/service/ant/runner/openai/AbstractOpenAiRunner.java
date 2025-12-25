@@ -5,6 +5,7 @@ import com.aiantfarm.service.ant.AntModelContext;
 import com.aiantfarm.service.ant.IAntModelRunner;
 import com.aiantfarm.service.ant.runner.ModelRunnerSupport;
 import com.aiantfarm.service.ant.runner.PromptBuilder;
+import com.aiantfarm.service.ant.runner.PromptTranscriptLogger;
 import com.aiantfarm.service.ant.runner.RetryUtil;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -30,16 +31,20 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
   private final int maxTokens;
   private final double temperature;
 
+  private final PromptTranscriptLogger transcriptLogger;
+
   private OpenAIClient client;
 
   protected AbstractOpenAiRunner(String apiKey,
                                  double temperature,
                                  int maxTokens,
-                                 String modelId) {
+                                 String modelId,
+                                 PromptTranscriptLogger transcriptLogger) {
     this.apiKey = apiKey;
     this.temperature = temperature;
     this.maxTokens = maxTokens;
     this.modelId = modelId;
+    this.transcriptLogger = transcriptLogger;
   }
 
   @PostConstruct
@@ -63,6 +68,10 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
 
     String system = PromptBuilder.buildSystemPrompt(ant.name(), ant.personalityPrompt());
     String userCtx = PromptBuilder.buildUserContext(
+        context == null ? "" : context.roomScenario(),
+        context == null ? "" : context.antPersonality(),
+        context == null ? "" : context.roomRoleName(),
+        context == null ? "" : context.roomRolePrompt(),
         context == null ? "" : context.roomSummary(),
         context == null ? null : context.recentMessages(),
         8_000);
@@ -75,7 +84,8 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
         .addMessage(ChatCompletionUserMessageParam.builder().content(userCtx).build())
         .build();
 
-    return callWithRetry(ant, roomId, start, params, "BlankResponse", "OpenAI returned blank content");
+    return callWithRetry(ant, roomId, start, "GenerateMessage", system, userCtx, params,
+        "BlankResponse", "OpenAI returned blank content");
   }
 
   @Override
@@ -85,6 +95,9 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
     String system = PromptBuilder.buildSummarySystemPrompt(ant.name(), ant.personalityPrompt());
     String user = PromptBuilder.buildSummaryUserPrompt(
         context == null ? "" : context.roomScenario(),
+        context == null ? "" : context.antPersonality(),
+        context == null ? "" : context.roomRoleName(),
+        context == null ? "" : context.roomRolePrompt(),
         existingSummary,
         context == null ? null : context.recentMessages(),
         8_000);
@@ -97,12 +110,16 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
         .addMessage(ChatCompletionUserMessageParam.builder().content(user).build())
         .build();
 
-    return callWithRetry(ant, roomId, start, params, "BlankSummary", "OpenAI returned blank summary");
+    return callWithRetry(ant, roomId, start, "GenerateRoomSummary", system, user, params,
+        "BlankSummary", "OpenAI returned blank summary");
   }
 
   private String callWithRetry(Ant ant,
                               String roomId,
                               long startNano,
+                              String operation,
+                              String systemPrompt,
+                              String userPrompt,
                               ChatCompletionCreateParams params,
                               String blankCode,
                               String blankMsg) {
@@ -114,12 +131,12 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
 
         long latencyMs = (System.nanoTime() - startNano) / 1_000_000;
 
-        long inTok = 0;
-        long outTok = 0;
+        Integer inTok = null;
+        Integer outTok = null;
         try {
           if (cc.usage().isPresent()) {
-            inTok = cc.usage().get().promptTokens();
-            outTok = cc.usage().get().completionTokens();
+            inTok = (int) cc.usage().get().promptTokens();
+            outTok = (int) cc.usage().get().completionTokens();
           }
         } catch (Exception ignore) {
         }
@@ -129,7 +146,23 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
           throw new IllegalStateException("blank response");
         }
 
-        logSuccess(log, ant, roomId, model(), latencyMs, (int) inTok, (int) outTok);
+        // --- Prompt/response transcript logging (opt-in) ---
+        if (transcriptLogger != null && transcriptLogger.enabled()) {
+          transcriptLogger.logPromptAndResponse(
+              ant,
+              roomId,
+              model(),
+              operation,
+              systemPrompt,
+              userPrompt,
+              out,
+              latencyMs,
+              inTok,
+              outTok
+          );
+        }
+
+        logSuccess(log, ant, roomId, model(), latencyMs, inTok, outTok);
         return out.trim();
 
       } catch (UnauthorizedException e) {

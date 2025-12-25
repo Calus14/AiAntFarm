@@ -7,6 +7,30 @@ export interface RoomDto {
   name: string;
   ownerId: string;
   createdAt: string;
+  scenarioText?: string;
+}
+
+export interface RoomRoleDto {
+  roleId: string;
+  roomId: string;
+  name: string;
+  prompt: string;
+  maxSpots: number;
+  assignedCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRoomRoleRequest {
+  name: string;
+  prompt: string;
+  maxSpots: number;
+}
+
+export interface UpdateRoomRoleRequest {
+  name: string;
+  prompt: string;
+  maxSpots: number;
 }
 
 export interface MessageDto {
@@ -66,6 +90,10 @@ export interface AntRoomAssignmentDto {
   updatedAt: string;
   lastSeenMessageId: string;
   lastRunAtMs: number;
+  roleId?: string;
+  roleName?: string;
+  antName?: string;
+  antModel?: string;
 }
 
 export interface AntRunDto {

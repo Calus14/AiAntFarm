@@ -82,7 +82,7 @@ public class DefaultRoomService implements IRoomService {
   // --- mappers (domain -> dto) ---
 
   private RoomDto toRoomDto(Room r) {
-    return new RoomDto(r.id(), r.name(), r.createdByUserId(), r.createdAt().toString());
+    return new RoomDto(r.id(), r.name(), r.createdByUserId(), r.scenarioText(), r.createdAt().toString());
   }
 
   private MessageDto toMessageDto(Message m) {

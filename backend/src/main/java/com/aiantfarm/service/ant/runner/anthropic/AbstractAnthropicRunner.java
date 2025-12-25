@@ -5,6 +5,7 @@ import com.aiantfarm.service.ant.AntModelContext;
 import com.aiantfarm.service.ant.IAntModelRunner;
 import com.aiantfarm.service.ant.runner.ModelRunnerSupport;
 import com.aiantfarm.service.ant.runner.PromptBuilder;
+import com.aiantfarm.service.ant.runner.PromptTranscriptLogger;
 import com.aiantfarm.service.ant.runner.RetryUtil;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
@@ -30,16 +31,20 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
   private final int maxTokens;
   private final double temperature;
 
+  private final PromptTranscriptLogger transcriptLogger;
+
   private AnthropicClient client;
 
   protected AbstractAnthropicRunner(String apiKey,
                                     double temperature,
                                     int maxTokens,
-                                    String modelId) {
+                                    String modelId,
+                                    PromptTranscriptLogger transcriptLogger) {
     this.apiKey = apiKey;
     this.temperature = temperature;
     this.maxTokens = maxTokens;
     this.modelId = modelId;
+    this.transcriptLogger = transcriptLogger;
   }
 
   @PostConstruct
@@ -62,6 +67,10 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
 
     String system = PromptBuilder.buildSystemPrompt(ant.name(), ant.personalityPrompt());
     String userCtx = PromptBuilder.buildUserContext(
+        context == null ? "" : context.roomScenario(),
+        context == null ? "" : context.antPersonality(),
+        context == null ? "" : context.roomRoleName(),
+        context == null ? "" : context.roomRolePrompt(),
         context == null ? "" : context.roomSummary(),
         context == null ? null : context.recentMessages(),
         8_000);
@@ -88,6 +97,22 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
         if (isBlank(out)) {
           logFailure(log, ant, roomId, model(), latencyMs, "BlankResponse", "Anthropic returned blank content");
           throw new IllegalStateException("blank response");
+        }
+
+        // --- Prompt/response transcript logging (opt-in) ---
+        if (transcriptLogger != null && transcriptLogger.enabled()) {
+          transcriptLogger.logPromptAndResponse(
+              ant,
+              roomId,
+              model(),
+              "GenerateMessage",
+              system,
+              userCtx,
+              out,
+              latencyMs,
+              inTok,
+              outTok
+          );
         }
 
         logSuccess(log, ant, roomId, model(), latencyMs, inTok, outTok);
@@ -122,6 +147,9 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
     String system = PromptBuilder.buildSummarySystemPrompt(ant.name(), ant.personalityPrompt());
     String user = PromptBuilder.buildSummaryUserPrompt(
         context == null ? "" : context.roomScenario(),
+        context == null ? "" : context.antPersonality(),
+        context == null ? "" : context.roomRoleName(),
+        context == null ? "" : context.roomRolePrompt(),
         existingSummary,
         context == null ? null : context.recentMessages(),
         8_000);
@@ -147,6 +175,22 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
         if (isBlank(out)) {
           logFailure(log, ant, roomId, model(), latencyMs, "BlankSummary", "Anthropic returned blank summary");
           throw new IllegalStateException("blank summary");
+        }
+
+        // --- Prompt/response transcript logging (opt-in) ---
+        if (transcriptLogger != null && transcriptLogger.enabled()) {
+          transcriptLogger.logPromptAndResponse(
+              ant,
+              roomId,
+              model(),
+              "GenerateRoomSummary",
+              system,
+              user,
+              out,
+              latencyMs,
+              inTok,
+              outTok
+          );
         }
 
         logSuccess(log, ant, roomId, model(), latencyMs, inTok, outTok);

@@ -12,12 +12,13 @@ export interface Room {
   name: string;
   ownerId: string;
   createdAt: string;
+  scenarioText?: string;
 }
 
 export interface Message {
   messageId: string;
   roomId: string;
-  authroId: string;
+  authorId: string;
   authorName: string;
   authorType?: AuthorType;
   content: string;

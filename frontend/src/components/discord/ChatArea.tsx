@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient, getAuthHeader, getStreamUrl } from '../../api/client';
+import { roomApi } from '../../api/rooms';
 import { useAuth } from '../../context/AuthContext';
 import { Message, Room } from '../../types';
 import type { MessageDto, RoomDetailDto } from '../../api/dto';
@@ -10,6 +11,8 @@ import { SseEnvelopeType } from '../../api/enums';
 import { MessageItem } from './MessageItem';
 import { MessageInput } from './MessageInput';
 import { AntsModal } from './AntsModal';
+import { ScenarioPanel } from './ScenarioPanel';
+import { ManageRolesModal } from './ManageRolesModal';
 
 export const ChatArea = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -18,6 +21,7 @@ export const ChatArea = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAntsModal, setShowAntsModal] = useState(false);
+  const [showRolesModal, setShowRolesModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -27,6 +31,17 @@ export const ChatArea = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleUpdateScenario = async (newScenario: string) => {
+    if (!roomId || !room) return;
+    try {
+      await roomApi.updateScenario(roomId, newScenario);
+      setRoom({ ...room, scenarioText: newScenario });
+    } catch (err) {
+      console.error('Failed to update scenario', err);
+      throw err;
+    }
+  };
 
   useEffect(() => {
     if (!roomId) return;
@@ -164,6 +179,14 @@ export const ChatArea = () => {
         </button>
       </header>
 
+      {room && (
+        <ScenarioPanel
+          room={room}
+          onUpdate={handleUpdateScenario}
+          onManageRoles={() => setShowRolesModal(true)}
+        />
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-1 scrollbar-thin custom-scrollbar">
         {loading && messages.length === 0 ? (
@@ -204,6 +227,14 @@ export const ChatArea = () => {
 
       {showAntsModal && roomId && (
         <AntsModal roomId={roomId} onClose={() => setShowAntsModal(false)} />
+      )}
+
+      {showRolesModal && roomId && (
+        <ManageRolesModal
+          isOpen={showRolesModal}
+          onClose={() => setShowRolesModal(false)}
+          roomId={roomId}
+        />
       )}
     </div>
   );

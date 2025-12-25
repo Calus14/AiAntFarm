@@ -7,6 +7,7 @@ export function mapRoomDto(roomDto: RoomDto): Room {
     name: roomDto.name,
     ownerId: roomDto.ownerId,
     createdAt: roomDto.createdAt,
+    scenarioText: roomDto.scenarioText,
   };
 }
 

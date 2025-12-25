@@ -7,12 +7,12 @@ import com.aiantfarm.domain.Ant;
 import com.aiantfarm.domain.AntRoomAssignment;
 import com.aiantfarm.domain.AntRun;
 import com.aiantfarm.domain.Message;
+import com.aiantfarm.domain.RoomAntRole;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.repository.*;
 import com.aiantfarm.service.ant.AntModelContext;
 import com.aiantfarm.service.ant.AntScheduler;
 import com.aiantfarm.service.ant.IAntModelRunner;
-import com.aiantfarm.service.ant.runner.PromptBuilder;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +33,7 @@ public class DefaultAntService implements IAntService {
   private final RoomRepository roomRepository;
   private final MessageRepository messageRepository;
   private final AntScheduler antScheduler;
+  private final RoomAntRoleRepository roomAntRoleRepository;
 
   // Rolling summary settings (MVP defaults). Long-term: move to @Value config.
   private static final int SUMMARY_WINDOW_MESSAGES_SIZE = 30;
@@ -44,7 +45,8 @@ public class DefaultAntService implements IAntService {
       AntRunRepository antRunRepository,
       RoomRepository roomRepository,
       MessageRepository messageRepository,
-      AntScheduler antScheduler
+      AntScheduler antScheduler,
+      RoomAntRoleRepository roomAntRoleRepository
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
@@ -52,6 +54,7 @@ public class DefaultAntService implements IAntService {
     this.roomRepository = roomRepository;
     this.messageRepository = messageRepository;
     this.antScheduler = antScheduler;
+    this.roomAntRoleRepository = roomAntRoleRepository;
   }
 
   @PostConstruct
@@ -195,8 +198,13 @@ public class DefaultAntService implements IAntService {
       return new ListResponse<>(List.of());
     }
 
-    List<AntRoomAssignmentDto> items = assignmentRepository.listByRoom(roomId).stream()
-        .map(this::toAssignmentDto)
+    List<AntRoomAssignment> assignments = assignmentRepository.listByRoom(roomId);
+    
+    List<AntRoomAssignmentDto> items = assignments.stream()
+        .map(a -> {
+            Ant ant = antRepository.findById(a.antId()).orElse(null);
+            return toAssignmentDto(a, ant);
+        })
         .toList();
 
     return new ListResponse<>(items);
@@ -287,7 +295,30 @@ public class DefaultAntService implements IAntService {
         // Scenario is not implemented yet. For now it's blank, but the plumbing is here.
         String roomScenario = "";
 
-        AntModelContext summaryCtx = new AntModelContext(ctxPage.items(), working.roomSummary(), roomScenario);
+        // If a role is assigned, load the role prompt so the model can actually follow it.
+        String roleName = assignment.roleName() == null ? "" : assignment.roleName();
+        String rolePrompt = "";
+        if (assignment.roleId() != null && !assignment.roleId().isBlank()) {
+          try {
+            RoomAntRole role = roomAntRoleRepository.find(roomId, assignment.roleId()).orElse(null);
+            if (role != null) {
+              roleName = role.name() == null ? roleName : role.name();
+              rolePrompt = role.prompt() == null ? "" : role.prompt();
+            }
+          } catch (Exception e) {
+            log.warn("Failed to load role for ant prompt antId={} roomId={} roleId={} (continuing)",
+                ant.id(), roomId, assignment.roleId(), e);
+          }
+        }
+
+        AntModelContext summaryCtx = new AntModelContext(
+            ctxPage.items(),
+            working.roomSummary(),
+            roomScenario,
+            ant.personalityPrompt(),
+            roleName,
+            rolePrompt
+        );
         String updatedSummary = runner.generateRoomSummary(ant, roomId, summaryCtx, working.roomSummary());
 
         if (updatedSummary != null && !updatedSummary.isBlank()) {
@@ -310,7 +341,14 @@ public class DefaultAntService implements IAntService {
 
       // Build context including the rolling summary and (future) scenario.
       String roomScenario = "";
-      var ctx = new AntModelContext(ctxPage.items(), working.roomSummary(), roomScenario);
+      var ctx = new AntModelContext(
+          ctxPage.items(),
+          working.roomSummary(),
+          roomScenario,
+          ant.personalityPrompt(),
+          roleName,
+          rolePrompt
+      );
 
       IAntModelRunner runner = antScheduler.getRunner(ant.model());
       String content = runner.generateMessage(ant, roomId, ctx);
@@ -402,7 +440,7 @@ public class DefaultAntService implements IAntService {
     );
   }
 
-  private AntRoomAssignmentDto toAssignmentDto(AntRoomAssignment a) {
+  private AntRoomAssignmentDto toAssignmentDto(AntRoomAssignment a, Ant ant) {
     Long lastRunAtMs = a.lastRunAt() != null ? a.lastRunAt().toEpochMilli() : null;
     return new AntRoomAssignmentDto(
         a.antId(),
@@ -410,7 +448,11 @@ public class DefaultAntService implements IAntService {
         a.createdAt() != null ? a.createdAt().toString() : null,
         a.updatedAt() != null ? a.updatedAt().toString() : null,
         a.lastSeenMessageId(),
-        lastRunAtMs
+        lastRunAtMs,
+        a.roleId(),
+        a.roleName(),
+        ant != null ? ant.name() : null,
+        ant != null ? ant.model().name() : null
     );
   }
 

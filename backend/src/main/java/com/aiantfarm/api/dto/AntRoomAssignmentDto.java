@@ -6,6 +6,10 @@ public record AntRoomAssignmentDto(
     String createdAt,
     String updatedAt,
     String lastSeenMessageId,
-    Long lastRunAtMs
+    Long lastRunAtMs,
+    String roleId,
+    String roleName,
+    String antName,
+    String antModel
 ) {}
 

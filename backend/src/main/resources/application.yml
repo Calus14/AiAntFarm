@@ -33,21 +33,17 @@ antfarm:
       maxTokens: ${ANTFARM_ANTHROPIC_MAX_TOKENS:256}
       model:
         haiku: ${ANTFARM_ANTHROPIC_MODEL_HAIKU:claude-3-5-haiku-latest}
-    gemini:
-      apiKey: ${GEMINI_API_KEY:}
-      timeoutMs: ${ANTFARM_GEMINI_TIMEOUT_MS:20000}
-      temperature: ${ANTFARM_GEMINI_TEMPERATURE:0.7}
-      maxTokens: ${ANTFARM_GEMINI_MAX_TOKENS:256}
-      model:
-        flash: ${ANTFARM_GEMINI_MODEL_FLASH:gemini-2.0-flash}
-    together:
-      apiKey: ${TOGETHER_API_KEY:}
-      baseUrl: ${ANTFARM_TOGETHER_BASE_URL:https://api.together.xyz/v1}
-      timeoutMs: ${ANTFARM_TOGETHER_TIMEOUT_MS:20000}
-      temperature: ${ANTFARM_TOGETHER_TEMPERATURE:0.7}
-      maxTokens: ${ANTFARM_TOGETHER_MAX_TOKENS:256}
-      model:
-        llamaSmall: ${ANTFARM_TOGETHER_MODEL_LLAMA_SMALL:meta-llama/Llama-3.1-8B-Instruct-Turbo}
+
+  rooms:
+    summary:
+      maxWords: 200
+    antRoles:
+      maxSpotsLimit: ${ANTFARM_ROOMS_ANTROLES_MAX_SPOTS_LIMIT:5}
+
+  ai:
+    transcripts:
+      enabled: ${ANTFARM_AI_TRANSCRIPTS_ENABLED:true}
+      file: ${ANTFARM_AI_TRANSCRIPTS_FILE:logs/ai-transcripts.ndjson}
 
 spring:
   cloud:

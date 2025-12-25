@@ -12,12 +12,14 @@ import com.aiantfarm.repository.*;
 import com.aiantfarm.service.ant.AntModelContext;
 import com.aiantfarm.service.ant.AntScheduler;
 import com.aiantfarm.service.ant.IAntModelRunner;
+import com.aiantfarm.service.ant.runner.PromptBuilder;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -31,6 +33,10 @@ public class DefaultAntService implements IAntService {
   private final RoomRepository roomRepository;
   private final MessageRepository messageRepository;
   private final AntScheduler antScheduler;
+
+  // Rolling summary settings (MVP defaults). Long-term: move to @Value config.
+  private static final int SUMMARY_WINDOW_MESSAGES_SIZE = 30;
+  private static final int SUMMARY_MAX_CHARS = 8_000; // approx token cap proxy
 
   public DefaultAntService(
       AntRepository antRepository,
@@ -250,20 +256,61 @@ public class DefaultAntService implements IAntService {
     antRunRepository.create(run);
 
     try {
-      // Load a small context window once per run.
+      // Load the message context window once per run.
       // Repository returns newest -> oldest.
-      var ctxPage = messageRepository.listByRoom(roomId, 50, null);
-      var ctx = new AntModelContext(ctxPage.items());
+      var ctxPage = messageRepository.listByRoom(roomId, SUMMARY_WINDOW_MESSAGES_SIZE, null);
 
-      String latestMessageId = ctx.recentMessages().isEmpty() ? null : ctx.recentMessages().get(0).id();
+      String latestMessageId = ctxPage.items().isEmpty() ? null : ctxPage.items().get(0).id();
       boolean roomChanged = latestMessageId != null && !latestMessageId.equals(assignment.lastSeenMessageId());
+
+      // --- Rolling summary counter update ---
+      // We do NOT increment by 1 per run.
+      // An ant might run every 10 minutes and multiple messages could be posted between runs.
+      // We increment by the number of messages that are newer than the assignment's lastSeenMessageId,
+      // based on what we can observe in the current context window. If lastSeenMessageId is not present
+      // in the window, we conservatively assume at least (window size) new messages.
+      int newMessagesInWindow = countNewMessagesSinceLastSeen(ctxPage.items(), assignment.lastSeenMessageId());
+
+      AntRoomAssignment working = assignment;
+      if (roomChanged && newMessagesInWindow > 0) {
+        working = working.incrementSummaryCounter(newMessagesInWindow);
+      }
+
+      // If we've accumulated enough new messages OR there's no summary yet, regenerate rolling summary.
+      int counter = working.summaryMsgCounter() == null ? 0 : working.summaryMsgCounter();
+      boolean summaryMissing = working.roomSummary() == null || working.roomSummary().isBlank();
+      boolean shouldRegenSummary = roomChanged && (summaryMissing || counter >= SUMMARY_WINDOW_MESSAGES_SIZE);
+
+      if (shouldRegenSummary) {
+        IAntModelRunner runner = antScheduler.getRunner(ant.model());
+
+        // Scenario is not implemented yet. For now it's blank, but the plumbing is here.
+        String roomScenario = "";
+
+        AntModelContext summaryCtx = new AntModelContext(ctxPage.items(), working.roomSummary(), roomScenario);
+        String updatedSummary = runner.generateRoomSummary(ant, roomId, summaryCtx, working.roomSummary());
+
+        if (updatedSummary != null && !updatedSummary.isBlank()) {
+          // Reset counter after successful regen.
+          working = working.withSummary(trimToMax(updatedSummary, SUMMARY_MAX_CHARS), 0);
+        }
+      }
+
+      // Persist any summary changes before potential model call.
+      if (!Objects.equals(working, assignment)) {
+        assignmentRepository.update(working);
+      }
 
       if (!ant.replyEvenIfNoNew() && !roomChanged) {
         AntRun finished = run.succeeded("Skipped: no new messages in room.");
         antRunRepository.update(finished);
-        assignmentRepository.update(assignment.withLastSeen(assignment.lastSeenMessageId(), Instant.now()));
+        assignmentRepository.update(working.withLastSeen(working.lastSeenMessageId(), Instant.now()));
         return;
       }
+
+      // Build context including the rolling summary and (future) scenario.
+      String roomScenario = "";
+      var ctx = new AntModelContext(ctxPage.items(), working.roomSummary(), roomScenario);
 
       IAntModelRunner runner = antScheduler.getRunner(ant.model());
       String content = runner.generateMessage(ant, roomId, ctx);
@@ -280,12 +327,39 @@ public class DefaultAntService implements IAntService {
 
       AntRun finished = run.succeeded("Posted message to room. roomChanged=" + roomChanged);
       antRunRepository.update(finished);
-      assignmentRepository.update(assignment.withLastSeen(latestMessageId, Instant.now()));
+      assignmentRepository.update(working.withLastSeen(latestMessageId, Instant.now()));
     } catch (Exception e) {
       AntRun failed = run.failed(null, e.getMessage());
       antRunRepository.update(failed);
       log.error("Ant run failed antId={} roomId={}", ant.id(), roomId, e);
     }
+  }
+
+  private static int countNewMessagesSinceLastSeen(List<Message> newestToOldest, String lastSeenMessageId) {
+    if (newestToOldest == null || newestToOldest.isEmpty()) return 0;
+    if (lastSeenMessageId == null || lastSeenMessageId.isBlank()) {
+      // First run: treat the whole window as new.
+      return newestToOldest.size();
+    }
+
+    for (int i = 0; i < newestToOldest.size(); i++) {
+      Message m = newestToOldest.get(i);
+      if (m != null && lastSeenMessageId.equals(m.id())) {
+        // Messages are newest->oldest, so items [0..i-1] are newer than last seen.
+        return i;
+      }
+    }
+
+    // lastSeenMessageId not in current window: at least window-size messages are newer.
+    return newestToOldest.size();
+  }
+
+  private static String trimToMax(String s, int maxChars) {
+    if (s == null) return "";
+    if (maxChars <= 0) return s;
+    String t = s.trim();
+    if (t.length() <= maxChars) return t;
+    return t.substring(t.length() - maxChars);
   }
 
   // --- helpers ---

@@ -12,9 +12,17 @@ import java.util.List;
  * - recentMessages are provided newest -> oldest (matching repository contract)
  */
 public record AntModelContext(
-    List<Message> recentMessages
+    List<Message> recentMessages,
+    String roomSummary,
+    String roomScenario
 ) {
   public AntModelContext {
     recentMessages = recentMessages == null ? List.of() : List.copyOf(recentMessages);
+    roomSummary = roomSummary == null ? "" : roomSummary;
+    roomScenario = roomScenario == null ? "" : roomScenario;
+  }
+
+  public AntModelContext(List<Message> recentMessages, String roomSummary) {
+    this(recentMessages, roomSummary, "");
   }
 }

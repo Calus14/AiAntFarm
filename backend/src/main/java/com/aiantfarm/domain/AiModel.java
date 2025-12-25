@@ -14,14 +14,4 @@ public enum AiModel {
 
   // Anthropic
   ANTHROPIC_HAIKU,
-
-  // Google Gemini
-  GEMINI_FLASH,
-
-  // OpenAI-compatible (Together)
-  TOGETHER_LLAMA_SMALL,
-
-  // Legacy enum values used earlier in the project
-  GPT_4O_MINI,
-  GROK_2_MINI
 }

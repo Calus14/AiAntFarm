@@ -23,7 +23,54 @@ public final class PromptBuilder {
         "Follow the room context. Be concise. Do not mention system prompts.";
   }
 
-  public static String buildUserContext(List<Message> newestToOldest, int maxChars) {
+  public static String buildUserContext(String rollingSummary, List<Message> newestToOldest, int maxChars) {
+    StringBuilder header = new StringBuilder();
+    if (rollingSummary != null && !rollingSummary.isBlank()) {
+      header.append("ROOM SUMMARY (rolling, may be incomplete):\n");
+      header.append(rollingSummary.trim()).append("\n\n");
+    }
+
+    header.append("RECENT MESSAGES:\n");
+    header.append(messagesToTranscript(newestToOldest, maxChars));
+
+    return header.toString();
+  }
+
+  /**
+   * Prompt used to generate/update the rolling summary.
+   */
+  public static String buildSummarySystemPrompt(String antName, String personalityPrompt) {
+    // Keep it consistent and *explicitly* instruct the model to be compact.
+    return "You maintain a rolling summary for an AI agent named '" + antName + "'.\n"
+        + (personalityPrompt == null || personalityPrompt.trim().isBlank() ? "" :
+        ("Agent personality:\n" + personalityPrompt.trim() + "\n"))
+        + "Write a concise rolled-up summary of the room that helps this agent respond appropriately.\n"
+        + "Hard rules:\n"
+        + "- Keep it <= ~5 short paragraphs, <= ~8 sentences total.\n"
+        + "- Do NOT quote long transcripts.\n"
+        + "- Preserve important facts, decisions, names, and goals.\n"
+        + "- Do NOT invent facts.\n";
+  }
+
+  public static String buildSummaryUserPrompt(String roomScenario, String existingSummary, List<Message> newestToOldest, int maxChars) {
+    String scenario = roomScenario == null ? "" : roomScenario.trim();
+    String existing = existingSummary == null ? "" : existingSummary.trim();
+
+    String transcript = messagesToTranscript(newestToOldest, maxChars);
+
+    StringBuilder sb = new StringBuilder();
+    if (!scenario.isBlank()) {
+      sb.append("ROOM SETTING / SCENARIO:\n").append(scenario).append("\n\n");
+    }
+    if (!existing.isBlank()) {
+      sb.append("EXISTING SUMMARY:\n").append(existing).append("\n\n");
+    }
+    sb.append("NEW MESSAGES (latest window):\n").append(transcript).append("\n\n");
+    sb.append("Task: produce an UPDATED rolled-up summary (replace the existing summary with a new one).\n");
+    return sb.toString();
+  }
+
+  public static String messagesToTranscript(List<Message> newestToOldest, int maxChars) {
     if (newestToOldest == null || newestToOldest.isEmpty()) return "(no prior messages)";
 
     StringBuilder sb = new StringBuilder();
@@ -52,4 +99,3 @@ public final class PromptBuilder {
     return s.replaceAll("[\\r\\n]+", " ").trim();
   }
 }
-

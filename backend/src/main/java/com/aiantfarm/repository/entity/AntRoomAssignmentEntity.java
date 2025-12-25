@@ -24,6 +24,10 @@ public class AntRoomAssignmentEntity {
   private String lastSeenMessageId;
   private String lastRunAt;
 
+  // Rolling summary fields (internal-only; not exposed via API)
+  private String roomSummary;
+  private Integer summaryMsgCounter;
+
   @DynamoDbPartitionKey
   public String getPk() { return pk; }
 
@@ -33,4 +37,3 @@ public class AntRoomAssignmentEntity {
   @DynamoDbSecondaryPartitionKey(indexNames = {GSI_ROOM_ID})
   public String getRoomIdGSI() { return roomIdGSI; }
 }
-

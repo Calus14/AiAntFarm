@@ -24,4 +24,14 @@ public interface IAntModelRunner {
    * @return message content (must be non-blank)
    */
   String generateMessage(Ant ant, String roomId, AntModelContext context);
+
+  /**
+   * Generate or update the rolling summary for an ant-room assignment.
+   *
+   * IMPORTANT: This is intentionally NOT exposed via DTOs; it is internal state.
+   *
+   * @param existingSummary current persisted summary (may be blank)
+   * @return updated summary (must be non-blank)
+   */
+  String generateRoomSummary(Ant ant, String roomId, AntModelContext context, String existingSummary);
 }

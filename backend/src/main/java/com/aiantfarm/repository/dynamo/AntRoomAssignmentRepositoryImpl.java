@@ -112,6 +112,11 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
     e.setUpdatedAt(a.updatedAt() != null ? a.updatedAt().toString() : Instant.EPOCH.toString());
     e.setLastSeenMessageId(a.lastSeenMessageId());
     e.setLastRunAt(a.lastRunAt() != null ? a.lastRunAt().toString() : null);
+
+    // new fields
+    e.setRoomSummary(a.roomSummary());
+    e.setSummaryMsgCounter(a.summaryMsgCounter());
+
     return e;
   }
 
@@ -125,8 +130,9 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
         createdAt,
         updatedAt,
         e.getLastSeenMessageId(),
-        lastRunAt
+        lastRunAt,
+        e.getRoomSummary(),
+        e.getSummaryMsgCounter() == null ? 0 : e.getSummaryMsgCounter()
     );
   }
 }
-

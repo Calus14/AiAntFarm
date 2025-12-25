@@ -170,6 +170,7 @@ public class RoomRepositoryImpl implements RoomRepository {
     e.setRoomId(r.id());
     e.setNameGSI(r.name());
     e.setCreatedByUserIdGSI(r.createdByUserId());
+    e.setScenarioText(r.scenarioText());
     e.setCreatedAt(r.createdAt());
     return e;
   }
@@ -180,6 +181,7 @@ public class RoomRepositoryImpl implements RoomRepository {
       roomId = e.getPk().substring("ROOM#".length());
     }
     Instant createdAt = e.getCreatedAt() != null ? e.getCreatedAt() : Instant.EPOCH;
-    return new Room(roomId, e.getNameGSI(), e.getCreatedByUserIdGSI(), createdAt);
+    String scenarioText = e.getScenarioText() == null ? "" : e.getScenarioText();
+    return new Room(roomId, e.getNameGSI(), e.getCreatedByUserIdGSI(), scenarioText, createdAt);
   }
 }

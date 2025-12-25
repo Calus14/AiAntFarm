@@ -113,7 +113,11 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
     e.setLastSeenMessageId(a.lastSeenMessageId());
     e.setLastRunAt(a.lastRunAt() != null ? a.lastRunAt().toString() : null);
 
-    // new fields
+    // role assignment
+    e.setRoleId(a.roleId());
+    e.setRoleName(a.roleName());
+
+    // rolling summary
     e.setRoomSummary(a.roomSummary());
     e.setSummaryMsgCounter(a.summaryMsgCounter());
 
@@ -131,6 +135,8 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
         updatedAt,
         e.getLastSeenMessageId(),
         lastRunAt,
+        e.getRoleId(),
+        e.getRoleName(),
         e.getRoomSummary(),
         e.getSummaryMsgCounter() == null ? 0 : e.getSummaryMsgCounter()
     );

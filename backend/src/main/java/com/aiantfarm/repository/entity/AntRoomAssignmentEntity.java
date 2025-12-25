@@ -24,6 +24,10 @@ public class AntRoomAssignmentEntity {
   private String lastSeenMessageId;
   private String lastRunAt;
 
+  // RoomAntRole assignment fields
+  private String roleId;
+  private String roleName;
+
   // Rolling summary fields (internal-only; not exposed via API)
   private String roomSummary;
   private Integer summaryMsgCounter;

@@ -16,6 +16,9 @@ import java.util.List;
 public final class PromptBuilder {
   private PromptBuilder() {}
 
+  // For MVP: keep this constant. If we want to configure this later, pass it in from a @ConfigurationProperties.
+  private static final int MAX_MESSAGE_WORDS_DEFAULT = 150;
+
   public static String buildSystemPrompt(String antName, String personalityPrompt) {
     String pp = personalityPrompt == null ? "" : personalityPrompt.trim();
     return "You are an AI agent named '" + antName + "'.\n" +
@@ -23,50 +26,117 @@ public final class PromptBuilder {
         "Follow the room context. Be concise. Do not mention system prompts.";
   }
 
-  public static String buildUserContext(String rollingSummary, List<Message> newestToOldest, int maxChars) {
-    StringBuilder header = new StringBuilder();
-    if (rollingSummary != null && !rollingSummary.isBlank()) {
-      header.append("ROOM SUMMARY (rolling, may be incomplete):\n");
-      header.append(rollingSummary.trim()).append("\n\n");
+  /**
+   * User prompt for message generation.
+   *
+   * Includes:
+   * - room scenario
+   * - ant personality (restated)
+   * - assigned room role (name + prompt)
+   * - rolling summary
+   * - last N messages
+   */
+  public static String buildUserContext(String roomScenario,
+                                       String antPersonality,
+                                       String roomRoleName,
+                                       String roomRolePrompt,
+                                       String rollingSummary,
+                                       List<Message> newestToOldest,
+                                       int maxChars) {
+    String scenario = roomScenario == null ? "" : roomScenario.trim();
+    String personality = antPersonality == null ? "" : antPersonality.trim();
+    String roleName = roomRoleName == null ? "" : roomRoleName.trim();
+    String rolePrompt = roomRolePrompt == null ? "" : roomRolePrompt.trim();
+
+    StringBuilder sb = new StringBuilder();
+
+    if (!scenario.isBlank()) {
+      sb.append("ROOM SETTING / SCENARIO:\n").append(scenario).append("\n\n");
     }
 
-    header.append("RECENT MESSAGES:\n");
-    header.append(messagesToTranscript(newestToOldest, maxChars));
+    if (!personality.isBlank()) {
+      sb.append("YOUR PERSONALITY (follow strictly):\n").append(personality).append("\n\n");
+    }
 
-    return header.toString();
+    if (!roleName.isBlank() || !rolePrompt.isBlank()) {
+      sb.append("YOUR ROLE IN THIS ROOM:\n");
+      if (!roleName.isBlank()) sb.append("Role name: ").append(roleName).append("\n");
+      if (!rolePrompt.isBlank()) sb.append(rolePrompt).append("\n");
+      sb.append("\n");
+    }
+
+    if (rollingSummary != null && !rollingSummary.isBlank()) {
+      sb.append("ROOM SUMMARY (rolling, may be incomplete):\n");
+      sb.append(rollingSummary.trim()).append("\n\n");
+    }
+
+    sb.append("RECENT MESSAGES:\n");
+    sb.append(messagesToTranscript(newestToOldest, maxChars));
+    sb.append("\n\n");
+
+    sb.append("Task: write ONLY the next in-character message you want to send to the room.\n");
+    sb.append("Keep it under ").append(MAX_MESSAGE_WORDS_DEFAULT).append(" words.\n");
+
+    return sb.toString();
   }
 
   /**
-   * Prompt used to generate/update the rolling summary.
+   * System prompt used to generate/update the rolling summary.
    */
   public static String buildSummarySystemPrompt(String antName, String personalityPrompt) {
-    // Keep it consistent and *explicitly* instruct the model to be compact.
-    return "You maintain a rolling summary for an AI agent named '" + antName + "'.\n"
+    return "You maintain a rolling room summary for an AI agent named \"" + antName + "\".\n"
         + (personalityPrompt == null || personalityPrompt.trim().isBlank() ? "" :
         ("Agent personality:\n" + personalityPrompt.trim() + "\n"))
-        + "Write a concise rolled-up summary of the room that helps this agent respond appropriately.\n"
+        + "Write a concise rolled-up summary that helps the agent respond appropriately.\n"
         + "Hard rules:\n"
-        + "- Keep it <= ~5 short paragraphs, <= ~8 sentences total.\n"
+        + "- Keep it short (<= ~5 paragraphs, <= ~8 sentences).\n"
         + "- Do NOT quote long transcripts.\n"
         + "- Preserve important facts, decisions, names, and goals.\n"
         + "- Do NOT invent facts.\n";
   }
 
-  public static String buildSummaryUserPrompt(String roomScenario, String existingSummary, List<Message> newestToOldest, int maxChars) {
+  /**
+   * User prompt for summary generation.
+   *
+   * Includes scenario + personality + role so the summary preserves what matters for this specific ant.
+   */
+  public static String buildSummaryUserPrompt(String roomScenario,
+                                             String antPersonality,
+                                             String roomRoleName,
+                                             String roomRolePrompt,
+                                             String existingSummary,
+                                             List<Message> newestToOldest,
+                                             int maxChars) {
     String scenario = roomScenario == null ? "" : roomScenario.trim();
+    String personality = antPersonality == null ? "" : antPersonality.trim();
+    String roleName = roomRoleName == null ? "" : roomRoleName.trim();
+    String rolePrompt = roomRolePrompt == null ? "" : roomRolePrompt.trim();
     String existing = existingSummary == null ? "" : existingSummary.trim();
 
     String transcript = messagesToTranscript(newestToOldest, maxChars);
 
     StringBuilder sb = new StringBuilder();
+
     if (!scenario.isBlank()) {
       sb.append("ROOM SETTING / SCENARIO:\n").append(scenario).append("\n\n");
     }
+    if (!personality.isBlank()) {
+      sb.append("ANT PERSONALITY (follow strictly):\n").append(personality).append("\n\n");
+    }
+    if (!roleName.isBlank() || !rolePrompt.isBlank()) {
+      sb.append("ANT ROLE IN THIS ROOM:\n");
+      if (!roleName.isBlank()) sb.append("Role name: ").append(roleName).append("\n");
+      if (!rolePrompt.isBlank()) sb.append(rolePrompt).append("\n");
+      sb.append("\n");
+    }
+
     if (!existing.isBlank()) {
       sb.append("EXISTING SUMMARY:\n").append(existing).append("\n\n");
     }
+
     sb.append("NEW MESSAGES (latest window):\n").append(transcript).append("\n\n");
     sb.append("Task: produce an UPDATED rolled-up summary (replace the existing summary with a new one).\n");
+
     return sb.toString();
   }
 

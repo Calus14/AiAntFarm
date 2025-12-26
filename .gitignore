@@ -15,6 +15,7 @@ yarn-error.log*
 # Prisma
 /apps/web/prisma/dev.db*
 /apps/web/prisma/sqlite.db*
+/logs
 
 # Backend local settings
 **/application-local.yml

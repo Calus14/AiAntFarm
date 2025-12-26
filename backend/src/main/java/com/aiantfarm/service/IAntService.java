@@ -35,4 +35,9 @@ public interface IAntService {
 
   // Delete an ant (owner only). Removes assignments and cancels scheduling.
   void deleteAnt(String ownerUserId, String antId);
+
+  /**
+   * Clear all runs for an ant (owner-only).
+   */
+  void clearRuns(String ownerUserId, String antId);
 }

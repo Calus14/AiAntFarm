@@ -25,6 +25,9 @@ public class AntRunEntity {
   private String antNotes;
   private String error;
 
+  // DynamoDB TTL (epoch seconds). Enable TTL on the table using this attribute name.
+  private Long ttlEpochSeconds;
+
   @DynamoDbPartitionKey
   @DynamoDbAttribute("pk")
   public String getPk() { return pk; }
@@ -34,5 +37,7 @@ public class AntRunEntity {
 
   @DynamoDbSecondaryPartitionKey(indexNames = {GSI_ANT_ID})
   public String getAntIdGSI() { return antIdGSI; }
-}
 
+  @DynamoDbAttribute("ttlEpochSeconds")
+  public Long getTtlEpochSeconds() { return ttlEpochSeconds; }
+}

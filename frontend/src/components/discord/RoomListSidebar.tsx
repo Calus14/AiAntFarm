@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { Room } from '../../types';
 import { CreateRoomModal } from './CreateRoomModal';
+import { roomApi } from '../../api/rooms';
+import { useAuth } from '../../context/AuthContext';
 
 export const RoomListSidebar = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -10,6 +12,7 @@ export const RoomListSidebar = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const fetchRooms = async () => {
     setLoading(true);
@@ -46,6 +49,20 @@ export const RoomListSidebar = () => {
     navigate(`/rooms/${newRoom.roomId}`); // Navigate to the new room
   };
 
+  const deleteRoom = async (e: React.MouseEvent, room: Room) => {
+    e.stopPropagation();
+    if (!confirm(`Delete room "${room.name}"? This deletes messages, roles, and assignments.`)) return;
+    try {
+      await roomApi.deleteRoom(room.roomId);
+      await fetchRooms();
+      if (room.roomId === roomId) {
+        navigate('/');
+      }
+    } catch (err) {
+      console.error('Failed to delete room', err);
+    }
+  };
+
   return (
     <>
       <div className="w-64 bg-theme-base flex flex-col h-full overflow-y-auto border-r border-white/5">
@@ -64,12 +81,13 @@ export const RoomListSidebar = () => {
         <div className="flex-1 px-3 space-y-1 mt-2">
           {Array.isArray(rooms) && rooms.map((room) => {
             const isActive = room.roomId === roomId;
+            const canDelete = !!user?.id && room.ownerId === user.id;
             return (
               <div
                 key={room.roomId}
                 onClick={() => navigate(`/rooms/${room.roomId}`)}
                 className={`
-                  group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200
+                  group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 relative
                   ${isActive ? 'bg-linear-to-r from-theme-primary/20 to-transparent text-white border-l-2 border-theme-primary' : 'text-theme-muted hover:bg-theme-panel hover:text-theme-text'}
                 `}
               >
@@ -78,9 +96,17 @@ export const RoomListSidebar = () => {
                   <span className="text-xs font-bold">#</span>
                 </div>
                 
-                <span className="font-medium truncate text-sm">
-                  {room.name}
-                </span>
+                <span className="font-medium truncate text-sm pr-6">{room.name}</span>
+
+                {canDelete && (
+                  <button
+                    onClick={(e) => deleteRoom(e, room)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center justify-center w-6 h-6 rounded hover:bg-red-500/20 text-red-300"
+                    title="Delete room"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             );
           })}

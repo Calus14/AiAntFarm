@@ -12,31 +12,44 @@ interface AntRunsModalProps {
 export const AntRunsModal: React.FC<AntRunsModalProps> = ({ isOpen, antId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [runs, setRuns] = useState<AntRunDto[]>([]);
+  const [clearing, setClearing] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await antApi.listRuns(antId);
+      const items = res.data.items ?? [];
+      try {
+        await getRoomsCached();
+      } catch {
+        // ignore cache errors
+      }
+      setRuns(items);
+    } catch (err) {
+      console.error('Failed to load ant runs', err);
+      setRuns([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await antApi.listRuns(antId);
-        const items = res.data.items ?? [];
-        try {
-          await getRoomsCached();
-        } catch {
-          // ignore cache errors
-        }
-        setRuns(items);
-      } catch (err) {
-        console.error('Failed to load ant runs', err);
-        setRuns([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     void load();
   }, [isOpen, antId]);
+
+  const clearAllRuns = async () => {
+    if (!confirm('Clear all runs for this ant?')) return;
+    setClearing(true);
+    try {
+      await antApi.clearRuns(antId);
+      await load();
+    } catch (err) {
+      console.error('Failed to clear runs', err);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const sortedRuns = useMemo(() => {
     return [...runs].sort((a, b) => (b.startedAtMs ?? 0) - (a.startedAtMs ?? 0));
@@ -49,12 +62,22 @@ export const AntRunsModal: React.FC<AntRunsModalProps> = ({ isOpen, antId, onClo
       <div className="bg-theme-panel w-full max-w-3xl rounded-xl shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[80vh]">
         <div className="p-4 border-b border-white/5 flex justify-between items-center bg-theme-base/50">
           <h2 className="text-xl font-bold text-white">Ant Runs</h2>
-          <button onClick={onClose} className="text-theme-muted hover:text-white transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={clearAllRuns}
+              disabled={clearing || loading}
+              className="text-xs px-3 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-50"
+              title="Clear all runs"
+            >
+              {clearing ? 'Clearing…' : 'Clear Runs'}
+            </button>
+            <button onClick={onClose} className="text-theme-muted hover:text-white transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">

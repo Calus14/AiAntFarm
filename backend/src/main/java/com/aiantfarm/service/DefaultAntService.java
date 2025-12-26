@@ -263,10 +263,33 @@ public class DefaultAntService implements IAntService {
     AntRun run = AntRun.started(ant.id(), ant.ownerUserId(), roomId);
     antRunRepository.create(run);
 
+    // Ensure role fields are always in scope throughout this method.
+    String roleNameForPrompt = "";
+    String rolePromptForPrompt = "";
+
     try {
       // Load the message context window once per run.
       // Repository returns newest -> oldest.
       var ctxPage = messageRepository.listByRoom(roomId, SUMMARY_WINDOW_MESSAGES_SIZE, null);
+
+      // Scenario is not implemented yet. For now it's blank, but the plumbing is here.
+      String roomScenario = "";
+
+      // If a role is assigned, load the role prompt so the model can actually follow it.
+      roleNameForPrompt = assignment.roleName() == null ? "" : assignment.roleName();
+      rolePromptForPrompt = "";
+      if (assignment.roleId() != null && !assignment.roleId().isBlank()) {
+        try {
+          RoomAntRole role = roomAntRoleRepository.find(roomId, assignment.roleId()).orElse(null);
+          if (role != null) {
+            roleNameForPrompt = role.name() == null ? roleNameForPrompt : role.name();
+            rolePromptForPrompt = role.prompt() == null ? "" : role.prompt();
+          }
+        } catch (Exception e) {
+          log.warn("Failed to load role for ant prompt antId={} roomId={} roleId={} (continuing)",
+              ant.id(), roomId, assignment.roleId(), e);
+        }
+      }
 
       String latestMessageId = ctxPage.items().isEmpty() ? null : ctxPage.items().get(0).id();
       boolean roomChanged = latestMessageId != null && !latestMessageId.equals(assignment.lastSeenMessageId());
@@ -292,32 +315,13 @@ public class DefaultAntService implements IAntService {
       if (shouldRegenSummary) {
         IAntModelRunner runner = antScheduler.getRunner(ant.model());
 
-        // Scenario is not implemented yet. For now it's blank, but the plumbing is here.
-        String roomScenario = "";
-
-        // If a role is assigned, load the role prompt so the model can actually follow it.
-        String roleName = assignment.roleName() == null ? "" : assignment.roleName();
-        String rolePrompt = "";
-        if (assignment.roleId() != null && !assignment.roleId().isBlank()) {
-          try {
-            RoomAntRole role = roomAntRoleRepository.find(roomId, assignment.roleId()).orElse(null);
-            if (role != null) {
-              roleName = role.name() == null ? roleName : role.name();
-              rolePrompt = role.prompt() == null ? "" : role.prompt();
-            }
-          } catch (Exception e) {
-            log.warn("Failed to load role for ant prompt antId={} roomId={} roleId={} (continuing)",
-                ant.id(), roomId, assignment.roleId(), e);
-          }
-        }
-
         AntModelContext summaryCtx = new AntModelContext(
             ctxPage.items(),
             working.roomSummary(),
             roomScenario,
             ant.personalityPrompt(),
-            roleName,
-            rolePrompt
+            roleNameForPrompt,
+            rolePromptForPrompt
         );
         String updatedSummary = runner.generateRoomSummary(ant, roomId, summaryCtx, working.roomSummary());
 
@@ -340,14 +344,13 @@ public class DefaultAntService implements IAntService {
       }
 
       // Build context including the rolling summary and (future) scenario.
-      String roomScenario = "";
       var ctx = new AntModelContext(
           ctxPage.items(),
           working.roomSummary(),
           roomScenario,
           ant.personalityPrompt(),
-          roleName,
-          rolePrompt
+          roleNameForPrompt,
+          rolePromptForPrompt
       );
 
       IAntModelRunner runner = antScheduler.getRunner(ant.model());
@@ -476,5 +479,11 @@ public class DefaultAntService implements IAntService {
 
     // Delete runs? not required now; AntRun can remain for audit, but we delete the ant meta
     antRepository.delete(antId);
+  }
+
+  @Override
+  public void clearRuns(String ownerUserId, String antId) {
+    requireOwnedAnt(ownerUserId, antId);
+    antRunRepository.deleteAllByAnt(antId);
   }
 }

@@ -9,15 +9,20 @@ import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.aiantfarm.utils.DynamoIndexes.GSI_ANT_ID;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class AntRunRepositoryImpl implements AntRunRepository {
 
   private final DynamoDbTable<AntRunEntity> table;
   private final DynamoDbIndex<AntRunEntity> antIndex;
+
+  private static final long DEFAULT_TTL_DAYS = 3;
 
   public AntRunRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(AntRunEntity.class));
@@ -34,6 +39,34 @@ public class AntRunRepositoryImpl implements AntRunRepository {
   public AntRun update(AntRun run) {
     table.updateItem(toEntity(run));
     return run;
+  }
+
+  @Override
+  public void deleteAllByAnt(String antId) {
+    if (antId == null || antId.isBlank()) return;
+
+    // Best-effort list+delete using GSI.
+    var res = antIndex.query(r -> {
+      r.queryConditional(QueryConditional.keyEqualTo(Key.builder().partitionValue(antId).build()));
+      r.limit(500);
+      r.scanIndexForward(false);
+    });
+
+    for (var page : res) {
+      for (var e : page.items()) {
+        if (e == null) continue;
+        try {
+          table.deleteItem(r -> r.key(Key.builder()
+              .partitionValue(e.getPk())
+              .sortValue(e.getSk())
+              .build()));
+        } catch (Exception ex) {
+          log.warn("Failed to delete AntRun item during clearRuns antId={} pk={} sk={}", antId, e.getPk(), e.getSk(), ex);
+        }
+      }
+      // one page is usually enough; user can repeat if huge.
+      break;
+    }
   }
 
   @Override
@@ -75,6 +108,12 @@ public class AntRunRepositoryImpl implements AntRunRepository {
     e.setStatus(r.status() != null ? r.status().name() : AntRunStatus.RUNNING.name());
     e.setAntNotes(r.antNotes());
     e.setError(r.error());
+
+    // TTL: default 3 days after start.
+    Instant started = r.startedAt() != null ? r.startedAt() : Instant.now();
+    long ttlSeconds = started.plus(DEFAULT_TTL_DAYS, ChronoUnit.DAYS).getEpochSecond();
+    e.setTtlEpochSeconds(ttlSeconds);
+
     return e;
   }
 

@@ -1,4 +1,4 @@
- package com.aiantfarm.api;
+package com.aiantfarm.api;
 
 import com.aiantfarm.api.dto.AntDto;
 import com.aiantfarm.api.dto.AssignAntToRoomRequest;
@@ -146,6 +146,19 @@ public class AntController {
     String userId = currentUserId();
     try {
       antService.deleteAnt(userId, antId);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
+  @DeleteMapping("/{antId}/runs")
+  public ResponseEntity<?> clearRuns(@PathVariable String antId) {
+    String userId = currentUserId();
+    try {
+      antService.clearRuns(userId, antId);
       return ResponseEntity.accepted().build();
     } catch (ResourceNotFoundException e) {
       return ResponseEntity.notFound().build();

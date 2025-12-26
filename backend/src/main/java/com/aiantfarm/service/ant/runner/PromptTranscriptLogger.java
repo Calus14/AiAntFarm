@@ -58,7 +58,7 @@ public class PromptTranscriptLogger {
     return enabled;
   }
 
-  public void logPromptAndResponse(
+  public void  logPromptAndResponse(
       Ant ant,
       String roomId,
       AiModel model,

@@ -160,4 +160,45 @@ public class MessageRepositoryImpl implements MessageRepository {
 
     return true;
   }
+
+  @Override
+  public void deleteAllByRoom(String roomId) {
+    if (roomId == null || roomId.isBlank()) return;
+
+    final String pk = DynamoKeys.roomPk(roomId);
+    final String msgPrefix = "MSG#";
+
+    // Best-effort loop: query messages (newest first) and delete each by pk/sk.
+    // This avoids calling delete(messageId) which intentionally creates a system "Msg Deleted" record.
+    String nextToken = null;
+    int safetyPages = 0;
+
+    while (safetyPages++ < 200) { // safety cap
+      var page = listByRoom(roomId, 200, nextToken);
+      if (page.items().isEmpty()) break;
+
+      for (var m : page.items()) {
+        if (m == null) continue;
+        try {
+          table.deleteItem(r -> r.key(Key.builder()
+              .partitionValue(pk)
+              .sortValue(DynamoKeys.messageSk(m.createdAt(), m.id()))
+              .build()));
+        } catch (Exception ex) {
+          // best-effort, but warn so failures are visible
+          // (we intentionally do not abort the room delete cascade on individual message failures)
+          org.slf4j.LoggerFactory.getLogger(MessageRepositoryImpl.class)
+              .warn("Failed to hard-delete message during deleteAllByRoom roomId={} messageId={}", roomId, m.id(), ex);
+        }
+      }
+
+      nextToken = page.nextToken();
+      if (nextToken == null || nextToken.isBlank()) break;
+
+      // Also ensure we still only target MSG# items.
+      if (!nextToken.startsWith(msgPrefix)) {
+        break;
+      }
+    }
+  }
 }

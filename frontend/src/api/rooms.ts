@@ -25,4 +25,6 @@ export const roomApi = {
 
   assignAntRole: (antId: string, roomId: string, roleId: string | null) =>
     apiClient.put<void>(`/api/v1/ants/${antId}/rooms/${roomId}/room-role`, { roleId }),
+
+  deleteRoom: (roomId: string) => apiClient.delete<void>(`/api/v1/rooms/${roomId}`),
 };

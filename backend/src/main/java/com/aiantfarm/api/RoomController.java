@@ -225,6 +225,21 @@ public class RoomController {
     return ResponseEntity.ok(antService.listAntsInRoom(roomId));
   }
 
+  @DeleteMapping("/{roomId}")
+  public ResponseEntity<?> delete(@PathVariable String roomId) {
+    String userId = currentUserId();
+    try {
+      roomService.deleteRoom(userId, roomId);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
   private String currentUserId() {
     return (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
   }

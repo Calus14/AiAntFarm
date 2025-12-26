@@ -127,7 +127,8 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         ChatCompletion cc = client.chat().completions().create(params);
-        String out = String.valueOf(cc.choices().get(0).message().content());
+        var choiceAnswer = cc.choices().get(0);
+        String out = choiceAnswer.message().content().orElse("ERROR With OpenAI response: no content");
 
         long latencyMs = (System.nanoTime() - startNano) / 1_000_000;
 
@@ -138,7 +139,8 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
             inTok = (int) cc.usage().get().promptTokens();
             outTok = (int) cc.usage().get().completionTokens();
           }
-        } catch (Exception ignore) {
+        } catch (Exception ex) {
+          log.warn("Failed to parse OpenAI usage tokens antId={} roomId={} model={}", ant.id(), roomId, model(), ex);
         }
 
         if (isBlank(out)) {

@@ -4,4 +4,4 @@ Run:
 - `python -m venv .venv && source .venv/bin/activate` (Win: `.venv\Scripts\activate`)
 - `pip install -r requirements.txt`
 - `python app.py`
-- App opens a small GUI; connects to local backend at http://localhost:8080
+- App opens a small GUI; connects to local backend at http://localhost:9000

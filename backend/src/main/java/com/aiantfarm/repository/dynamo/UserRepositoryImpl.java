@@ -79,4 +79,20 @@ public class UserRepositoryImpl implements UserRepository {
             .build()));
         return true;
     }
+
+    @Override
+    public long countUsers() {
+        long count = 0;
+        for (var page : table.scan()) {
+            for (var e : page.items()) {
+                if (e == null) continue;
+                String pk = e.getPk();
+                String sk = e.getSk();
+                if (pk != null && pk.startsWith("USER#") && sk != null && sk.startsWith("PROFILE#")) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
 }

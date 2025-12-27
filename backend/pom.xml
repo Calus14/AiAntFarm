@@ -6,11 +6,13 @@
   <groupId>com.aiantfarm</groupId>
   <artifactId>backend</artifactId>
   <version>0.0.1-SNAPSHOT</version>
+
   <properties>
     <java.version>21</java.version>
     <spring.boot.version>3.3.4</spring.boot.version>
     <lombok.version>1.18.42</lombok.version>
   </properties>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -20,6 +22,7 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Keep AWS SDK BOM; Spring Boot dependency mgmt is provided by the parent -->
       <dependency>
         <groupId>software.amazon.awssdk</groupId>
         <artifactId>bom</artifactId>
@@ -120,7 +123,19 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <addResources>true</addResources>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+              <goal>build-info</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -134,16 +149,8 @@
               <artifactId>lombok</artifactId>
               <version>${lombok.version}</version>
             </path>
-        </annotationProcessorPaths>
+          </annotationProcessorPaths>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <configuration><addResources>true</addResources></configuration>
-        <executions>
-          <execution><goals><goal>build-info</goal></goals></execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

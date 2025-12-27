@@ -91,8 +91,8 @@ public class AntScheduler {
 
     cancel(ant.id());
 
-    // Must be at least 30 seconds,
-    long intervalMs = Math.max(ant.intervalSeconds(), 30) * 1000L;
+    // Must be at least 60 seconds
+    long intervalMs = Math.max(ant.intervalSeconds(), 60) * 1000L;
     ScheduledFuture<?> repeatingFuture = scheduler.scheduleAtFixedRate(() -> {
       try {
         // offload tick to worker pool (so scheduler threads stay responsive)

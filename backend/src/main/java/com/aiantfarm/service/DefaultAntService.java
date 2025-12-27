@@ -8,6 +8,7 @@ import com.aiantfarm.domain.AntRoomAssignment;
 import com.aiantfarm.domain.AntRun;
 import com.aiantfarm.domain.Message;
 import com.aiantfarm.domain.RoomAntRole;
+import com.aiantfarm.exception.QuotaExceededException;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.repository.*;
 import com.aiantfarm.service.ant.AntModelContext;
@@ -15,6 +16,7 @@ import com.aiantfarm.service.ant.AntScheduler;
 import com.aiantfarm.service.ant.IAntModelRunner;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -39,6 +41,8 @@ public class DefaultAntService implements IAntService {
   private static final int SUMMARY_WINDOW_MESSAGES_SIZE = 30;
   private static final int SUMMARY_MAX_CHARS = 8_000; // approx token cap proxy
 
+  private final int maxAntsPerUser;
+
   public DefaultAntService(
       AntRepository antRepository,
       AntRoomAssignmentRepository assignmentRepository,
@@ -46,7 +50,8 @@ public class DefaultAntService implements IAntService {
       RoomRepository roomRepository,
       MessageRepository messageRepository,
       AntScheduler antScheduler,
-      RoomAntRoleRepository roomAntRoleRepository
+      RoomAntRoleRepository roomAntRoleRepository,
+      @Value("${antfarm.limits.maxAntsPerUser:10}") int maxAntsPerUser
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
@@ -55,6 +60,7 @@ public class DefaultAntService implements IAntService {
     this.messageRepository = messageRepository;
     this.antScheduler = antScheduler;
     this.roomAntRoleRepository = roomAntRoleRepository;
+    this.maxAntsPerUser = maxAntsPerUser;
   }
 
   @PostConstruct
@@ -87,9 +93,20 @@ public class DefaultAntService implements IAntService {
 
   @Override
   public AntDto createAnt(String ownerUserId, CreateAntRequest req) {
+    if (maxAntsPerUser > 0) {
+      int existing = antRepository.listByOwnerUserId(ownerUserId).size();
+      if (existing >= maxAntsPerUser) {
+        throw new QuotaExceededException("Ant creation is temporarily limited (max ants reached)");
+      }
+    }
+
     if (req == null) throw new IllegalArgumentException("request required");
 
     int interval = req.getIntervalSeconds() == null ? 60 : req.getIntervalSeconds();
+    if (interval < 60) {
+      throw new IllegalArgumentException("intervalSeconds must be >= 60");
+    }
+
     boolean enabled = req.getEnabled() != null && req.getEnabled();
     boolean replyEvenIfNoNew = req.getReplyEvenIfNoNew() != null && req.getReplyEvenIfNoNew();
     AiModel model = req.getModel() == null ? AiModel.MOCK : req.getModel();
@@ -125,8 +142,8 @@ public class DefaultAntService implements IAntService {
     Ant ant = requireOwnedAnt(ownerUserId, antId);
 
     Integer intervalSeconds = req != null ? req.getIntervalSeconds() : null;
-    if (intervalSeconds != null && intervalSeconds < 5) {
-      throw new IllegalArgumentException("intervalSeconds must be >= 5");
+    if (intervalSeconds != null && intervalSeconds < 60) {
+      throw new IllegalArgumentException("intervalSeconds must be >= 60");
     }
 
     Ant updated = ant.withUpdated(
@@ -213,7 +230,7 @@ public class DefaultAntService implements IAntService {
   @Override
   public void runNow(String ownerUserId, String antId) {
     // Validate ownership and existence
-    Ant ant = requireOwnedAnt(ownerUserId, antId);
+    requireOwnedAnt(ownerUserId, antId);
 
     // If there are no assignments, nothing to run.
     if (assignmentRepository.listByAnt(antId).isEmpty()) {
@@ -462,7 +479,7 @@ public class DefaultAntService implements IAntService {
 
   @Override
   public void deleteAnt(String ownerUserId, String antId) {
-    Ant ant = requireOwnedAnt(ownerUserId, antId);
+    requireOwnedAnt(ownerUserId, antId);
 
     // Cancel scheduler
     antScheduler.cancel(antId);

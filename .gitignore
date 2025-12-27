@@ -1,4 +1,3 @@
-
 # Node/Next
 node_modules
 .next
@@ -21,3 +20,8 @@ yarn-error.log*
 **/application-local.yml
 **/target/*
 .venv/*
+
+# --- AiAntFarm deploy helpers ---
+# (no secrets should be committed; keep local env files out)
+.env
+.env.*

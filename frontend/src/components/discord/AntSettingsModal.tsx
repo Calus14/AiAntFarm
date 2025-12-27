@@ -45,7 +45,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   const [name, setName] = useState('');
   const [modelValue, setModelValue] = useState<AiModel>(AiModel.MOCK);
   const [prompt, setPrompt] = useState('');
-  const [intervalSeconds, setIntervalSeconds] = useState(60);
+  const [intervalSeconds, setIntervalSeconds] = useState(300);
   const [enabled, setEnabled] = useState(true);
   const [replyEvenIfNoNew, setReplyEvenIfNoNew] = useState(false);
 
@@ -64,7 +64,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
         name: '',
         model: AiModel.MOCK,
         personalityPrompt: '',
-        intervalSeconds: 60,
+        intervalSeconds: 300,
         enabled: true,
         replyEvenIfNoNew: false,
       };
@@ -131,7 +131,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   }, [initial, current]);
 
   const canSave = mode === 'create'
-    ? !!name.trim() && !!prompt.trim() && intervalSeconds >= 5
+    ? !!name.trim() && !!prompt.trim() && intervalSeconds >= 60
     : isDirty;
 
   const handleSave = async () => {
@@ -312,7 +312,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
                   <label className="block text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">Interval (seconds)</label>
                   <input
                     type="number"
-                    min={5}
+                    min={60}
                     value={intervalSeconds}
                     onChange={(e) => setIntervalSeconds(parseInt(e.target.value || '0', 10))}
                     className="w-full bg-theme-base/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-theme-primary"

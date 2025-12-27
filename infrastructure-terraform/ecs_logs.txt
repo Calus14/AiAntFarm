@@ -1,0 +1,112 @@
+{
+    "tasks": [
+        {
+            "attachments": [
+                {
+                    "id": "510fb3a7-aba4-4c56-b226-3b969c0344ac",
+                    "type": "ElasticNetworkInterface",
+                    "status": "DELETED",
+                    "details": [
+                        {
+                            "name": "subnetId",
+                            "value": "subnet-0ce8c72514c872419"
+                        },
+                        {
+                            "name": "networkInterfaceId",
+                            "value": "eni-0b076d0f172fb5044"
+                        },
+                        {
+                            "name": "macAddress",
+                            "value": "02:5f:6e:52:77:89"
+                        },
+                        {
+                            "name": "privateDnsName",
+                            "value": "ip-10-10-0-15.us-east-2.compute.internal"
+                        },
+                        {
+                            "name": "privateIPv4Address",
+                            "value": "10.10.0.15"
+                        }
+                    ]
+                }
+            ],
+            "attributes": [
+                {
+                    "name": "ecs.cpu-architecture",
+                    "value": "x86_64"
+                }
+            ],
+            "availabilityZone": "us-east-2a",
+            "capacityProviderName": "FARGATE_SPOT",
+            "clusterArn": "arn:aws:ecs:us-east-2:802539608101:cluster/ai-antfarm-dev-cluster",
+            "connectivity": "CONNECTED",
+            "connectivityAt": "2025-12-26T09:03:38.979000+00:00",
+            "containers": [
+                {
+                    "containerArn": "arn:aws:ecs:us-east-2:802539608101:container/ai-antfarm-dev-cluster/2dd67cff37344f5082783c2d6813c50f/4fc2be9a-4153-4711-98a6-e072da788027",
+                    "taskArn": "arn:aws:ecs:us-east-2:802539608101:task/ai-antfarm-dev-cluster/2dd67cff37344f5082783c2d6813c50f",
+                    "name": "backend",
+                    "image": "802539608101.dkr.ecr.us-east-2.amazonaws.com/ai-antfarm-dev-backend:v1",
+                    "imageDigest": "sha256:15729edca8f24a3f503cbd9946fee00d94e54bc4afac3dc4f3c38b6720ec4fd9",
+                    "runtimeId": "2dd67cff37344f5082783c2d6813c50f-2750272591",
+                    "lastStatus": "STOPPED",
+                    "exitCode": 1,
+                    "networkBindings": [],
+                    "networkInterfaces": [
+                        {
+                            "attachmentId": "510fb3a7-aba4-4c56-b226-3b969c0344ac",
+                            "privateIpv4Address": "10.10.0.15"
+                        }
+                    ],
+                    "healthStatus": "UNKNOWN",
+                    "managedAgents": [
+                        {
+                            "name": "ExecuteCommandAgent",
+                            "lastStatus": "STOPPED"
+                        }
+                    ],
+                    "cpu": "0"
+                }
+            ],
+            "cpu": "512",
+            "createdAt": "2025-12-26T09:03:35.496000+00:00",
+            "desiredStatus": "STOPPED",
+            "enableExecuteCommand": true,
+            "executionStoppedAt": "2025-12-26T09:03:52.315000+00:00",
+            "group": "service:ai-antfarm-dev-backend",
+            "healthStatus": "UNKNOWN",
+            "lastStatus": "STOPPED",
+            "launchType": "FARGATE",
+            "memory": "1024",
+            "overrides": {
+                "containerOverrides": [
+                    {
+                        "name": "backend"
+                    }
+                ],
+                "inferenceAcceleratorOverrides": []
+            },
+            "platformVersion": "1.4.0",
+            "platformFamily": "Linux",
+            "pullStartedAt": "2025-12-26T09:03:46.181000+00:00",
+            "pullStoppedAt": "2025-12-26T09:03:51.406000+00:00",
+            "startedAt": "2025-12-26T09:04:01.578000+00:00",
+            "startedBy": "ecs-svc/7624352134843719841",
+            "stopCode": "EssentialContainerExited",
+            "stoppedAt": "2025-12-26T09:04:27.128000+00:00",
+            "stoppedReason": "Essential container in task exited",
+            "stoppingAt": "2025-12-26T09:04:02.348000+00:00",
+            "tags": [],
+            "taskArn": "arn:aws:ecs:us-east-2:802539608101:task/ai-antfarm-dev-cluster/2dd67cff37344f5082783c2d6813c50f",
+            "taskDefinitionArn": "arn:aws:ecs:us-east-2:802539608101:task-definition/ai-antfarm-dev-backend:4",
+            "version": 7,
+            "ephemeralStorage": {
+                "sizeInGiB": 20
+            },
+            "fargateEphemeralStorage": {
+                "sizeInGiB": 20
+            }
+        }
+    ],
+    "failures": []
+}

@@ -3,7 +3,9 @@ server:
 app:
   jwt:
     issuer: "ai-antfarm-dev"
-    secret: "change-me-dev-secret-32-bytes-minimum-change"
+    # IMPORTANT: do not hardcode real secrets here. In AWS, inject APP_JWT_SECRET from SSM.
+    # Local default only.
+    secret: ${APP_JWT_SECRET:change-me-dev-secret-32-bytes-minimum-change}
     ttlSeconds: 3600
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
@@ -44,6 +46,16 @@ antfarm:
     transcripts:
       enabled: ${ANTFARM_AI_TRANSCRIPTS_ENABLED:true}
       file: ${ANTFARM_AI_TRANSCRIPTS_FILE:logs/ai-transcripts.ndjson}
+
+  limits:
+    # Safety rails for early beta. Set to 0 to disable a limit.
+    # You can override these via environment variables in ECS:
+    # - ANTFARM_LIMITS_MAX_USERS
+    # - ANTFARM_LIMITS_MAX_ROOMS
+    # - ANTFARM_LIMITS_MAX_ANTS_PER_USER
+    maxUsers: ${ANTFARM_LIMITS_MAX_USERS:5}
+    maxRooms: ${ANTFARM_LIMITS_MAX_ROOMS:10}
+    maxAntsPerUser: ${ANTFARM_LIMITS_MAX_ANTS_PER_USER:10}
 
 spring:
   cloud:

@@ -47,3 +47,13 @@ output "backend_api_cloudfront_url" {
   description = "Full base URL for backend API edge distribution (HTTPS)."
   value       = "https://${aws_cloudfront_distribution.api.domain_name}"
 }
+
+output "frontend_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for the frontend (use for invalidations)."
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
+output "backend_api_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for the backend API edge distribution (use for invalidations)."
+  value       = aws_cloudfront_distribution.api.id
+}

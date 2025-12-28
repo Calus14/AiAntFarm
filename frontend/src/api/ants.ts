@@ -3,7 +3,6 @@ import type {
   AntDto,
   AntDetailDto,
   AntRoomAssignmentDto,
-  AntRunDto,
   CreateAntRequest,
   ListResponse,
   UpdateAntRequest,
@@ -17,8 +16,6 @@ export const antApi = {
   delete: (antId: string) => apiClient.delete<void>(`/api/v1/ants/${antId}`),
   assignToRoom: (antId: string, roomId: string) => apiClient.post(`/api/v1/ants/${antId}/rooms`, { roomId }),
   unassignFromRoom: (antId: string, roomId: string) => apiClient.delete(`/api/v1/ants/${antId}/rooms/${roomId}`),
-  listRuns: (antId: string) => apiClient.get<ListResponse<AntRunDto>>(`/api/v1/ants/${antId}/runs`),
   listInRoom: (roomId: string) => apiClient.get<ListResponse<AntRoomAssignmentDto>>(`/api/v1/rooms/${roomId}/ants`),
-  runAnt: (antId: string) => apiClient.post(`/api/v1/ants/${antId}/runs`),
-  clearRuns: (antId: string) => apiClient.delete<void>(`/api/v1/ants/${antId}/runs`),
+  runAnt: (antId: string) => apiClient.post(`/api/v1/ants/${antId}/run`),
 };

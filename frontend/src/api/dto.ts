@@ -95,14 +95,3 @@ export interface AntRoomAssignmentDto {
   antName?: string;
   antModel?: string;
 }
-
-export interface AntRunDto {
-  id: string;
-  antId: string;
-  roomId: string;
-  status: string;
-  startedAtMs: number;
-  finishedAtMs: number;
-  antNotes: string;
-  error: string;
-}

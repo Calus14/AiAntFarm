@@ -2,7 +2,6 @@ package com.aiantfarm.service;
 
 import com.aiantfarm.api.dto.AntDetailDto;
 import com.aiantfarm.api.dto.AntDto;
-import com.aiantfarm.api.dto.AntRunDto;
 import com.aiantfarm.api.dto.AntRoomAssignmentDto;
 import com.aiantfarm.api.dto.AssignAntToRoomRequest;
 import com.aiantfarm.api.dto.CreateAntRequest;
@@ -17,8 +16,6 @@ public interface IAntService {
 
   void assignToRoom(String ownerUserId, String antId, AssignAntToRoomRequest req);
   void unassignFromRoom(String ownerUserId, String antId, String roomId);
-
-  ListResponse<AntRunDto> listRuns(String ownerUserId, String antId, Integer limit);
 
   /**
    * Room-scoped view: list assignments (and their state) for a specific room.
@@ -35,9 +32,4 @@ public interface IAntService {
 
   // Delete an ant (owner only). Removes assignments and cancels scheduling.
   void deleteAnt(String ownerUserId, String antId);
-
-  /**
-   * Clear all runs for an ant (owner-only).
-   */
-  void clearRuns(String ownerUserId, String antId);
 }

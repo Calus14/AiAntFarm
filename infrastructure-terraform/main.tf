@@ -218,6 +218,8 @@ resource "aws_dynamodb_table" "main" {
   }
 
   # GSIs inferred from your console screenshots
+  # NOTE: AntRuns have been removed from the application; GSI_ANT_ID is no longer required.
+
   attribute {
     name = "emailGSI"
     type = "S"

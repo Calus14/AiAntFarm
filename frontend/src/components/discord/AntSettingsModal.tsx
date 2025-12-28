@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { antApi } from '../../api/ants';
 import type { AntDto, AntDetailDto, CreateAntRequest, UpdateAntRequest } from '../../api/dto';
 import { AiModel } from '../../api/enums';
-import { AntRunsModal } from './AntRunsModal';
 import { AssignAntToRoomModal } from './AssignAntToRoomModal';
 import { getRoomsCached, getRoomName } from '../../api/roomsCache';
 
@@ -49,7 +48,6 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   const [enabled, setEnabled] = useState(true);
   const [replyEvenIfNoNew, setReplyEvenIfNoNew] = useState(false);
 
-  const [showRuns, setShowRuns] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -256,13 +254,6 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowRuns(true)}
-                    className="flex-1 px-4 py-2 rounded-xl bg-theme-base/40 border border-white/10 text-white hover:bg-theme-base/60 transition-colors font-semibold"
-                  >
-                    See Ant Runs
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setShowAssign(true)}
                     className="flex-1 px-4 py-2 rounded-xl bg-theme-base/40 border border-white/10 text-white hover:bg-theme-base/60 transition-colors font-semibold"
                   >
@@ -418,7 +409,6 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
 
       {mode === 'edit' && antId && (
         <>
-          <AntRunsModal isOpen={showRuns} antId={antId} onClose={() => setShowRuns(false)} />
           <AssignAntToRoomModal
             isOpen={showAssign}
             antId={antId}

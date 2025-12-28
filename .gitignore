@@ -25,3 +25,6 @@ yarn-error.log*
 # (no secrets should be committed; keep local env files out)
 .env
 .env.*
+
+# Frontend runtime config (environment-specific)
+/frontend/public/config.json

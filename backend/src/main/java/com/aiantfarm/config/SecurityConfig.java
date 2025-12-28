@@ -26,6 +26,8 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
             .requestMatchers("/error").permitAll()
+            // Allow health checks (ALB/ECS)
+            .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
             .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
             .anyRequest().authenticated()
         );

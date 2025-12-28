@@ -5,7 +5,6 @@ import com.aiantfarm.api.dto.*;
 import com.aiantfarm.domain.AiModel;
 import com.aiantfarm.domain.Ant;
 import com.aiantfarm.domain.AntRoomAssignment;
-import com.aiantfarm.domain.AntRun;
 import com.aiantfarm.domain.Message;
 import com.aiantfarm.domain.RoomAntRole;
 import com.aiantfarm.exception.QuotaExceededException;
@@ -31,7 +30,6 @@ public class DefaultAntService implements IAntService {
 
   private final AntRepository antRepository;
   private final AntRoomAssignmentRepository assignmentRepository;
-  private final AntRunRepository antRunRepository;
   private final RoomRepository roomRepository;
   private final MessageRepository messageRepository;
   private final AntScheduler antScheduler;
@@ -46,7 +44,6 @@ public class DefaultAntService implements IAntService {
   public DefaultAntService(
       AntRepository antRepository,
       AntRoomAssignmentRepository assignmentRepository,
-      AntRunRepository antRunRepository,
       RoomRepository roomRepository,
       MessageRepository messageRepository,
       AntScheduler antScheduler,
@@ -55,7 +52,6 @@ public class DefaultAntService implements IAntService {
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
-    this.antRunRepository = antRunRepository;
     this.roomRepository = roomRepository;
     this.messageRepository = messageRepository;
     this.antScheduler = antScheduler;
@@ -201,15 +197,6 @@ public class DefaultAntService implements IAntService {
   }
 
   @Override
-  public ListResponse<AntRunDto> listRuns(String ownerUserId, String antId, Integer limit) {
-    requireOwnedAnt(ownerUserId, antId);
-    int n = limit == null ? 50 : limit;
-    List<AntRunDto> items = antRunRepository.listByAnt(antId, n)
-        .stream().map(this::toRunDto).toList();
-    return new ListResponse<>(items);
-  }
-
-  @Override
   public ListResponse<AntRoomAssignmentDto> listAntsInRoom(String roomId) {
     if (roomId == null || roomId.isBlank()) {
       return new ListResponse<>(List.of());
@@ -277,8 +264,7 @@ public class DefaultAntService implements IAntService {
     String roomId = assignment.roomId();
     log.info("Running ant in room antId={} roomId={}", ant.id(), roomId);
 
-    AntRun run = AntRun.started(ant.id(), ant.ownerUserId(), roomId);
-    antRunRepository.create(run);
+    // AntRuns removed: we no longer persist run history (major cost driver).
 
     // Ensure role fields are always in scope throughout this method.
     String roleNameForPrompt = "";
@@ -354,8 +340,7 @@ public class DefaultAntService implements IAntService {
       }
 
       if (!ant.replyEvenIfNoNew() && !roomChanged) {
-        AntRun finished = run.succeeded("Skipped: no new messages in room.");
-        antRunRepository.update(finished);
+        log.info("Skipped: no new messages in room antId={} roomId={}", ant.id(), roomId);
         assignmentRepository.update(working.withLastSeen(working.lastSeenMessageId(), Instant.now()));
         return;
       }
@@ -383,12 +368,8 @@ public class DefaultAntService implements IAntService {
       // The last message in the room is the one we just posted
       latestMessageId = msg.id();
 
-      AntRun finished = run.succeeded("Posted message to room. roomChanged=" + roomChanged);
-      antRunRepository.update(finished);
       assignmentRepository.update(working.withLastSeen(latestMessageId, Instant.now()));
     } catch (Exception e) {
-      AntRun failed = run.failed(null, e.getMessage());
-      antRunRepository.update(failed);
       log.error("Ant run failed antId={} roomId={}", ant.id(), roomId, e);
     }
   }
@@ -445,21 +426,6 @@ public class DefaultAntService implements IAntService {
     );
   }
 
-  private AntRunDto toRunDto(AntRun r) {
-    Long startedMs = r.startedAt() != null ? r.startedAt().toEpochMilli() : null;
-    Long finishedMs = r.finishedAt() != null ? r.finishedAt().toEpochMilli() : null;
-    return new AntRunDto(
-        r.id(),
-        r.antId(),
-        r.roomId(),
-        r.status().name(),
-        startedMs,
-        finishedMs,
-        r.antNotes(),
-        r.error()
-    );
-  }
-
   private AntRoomAssignmentDto toAssignmentDto(AntRoomAssignment a, Ant ant) {
     Long lastRunAtMs = a.lastRunAt() != null ? a.lastRunAt().toEpochMilli() : null;
     return new AntRoomAssignmentDto(
@@ -494,13 +460,7 @@ public class DefaultAntService implements IAntService {
       log.warn("Failed to remove assignments for antId={} (continuing)", antId, e);
     }
 
-    // Delete runs? not required now; AntRun can remain for audit, but we delete the ant meta
+    // Delete ant meta
     antRepository.delete(antId);
-  }
-
-  @Override
-  public void clearRuns(String ownerUserId, String antId) {
-    requireOwnedAnt(ownerUserId, antId);
-    antRunRepository.deleteAllByAnt(antId);
   }
 }

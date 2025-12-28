@@ -52,9 +52,4 @@ public class RepositoryConfig {
   public AntRoomAssignmentRepository antRoomAssignmentRepository(DynamoDbEnhancedClient enhanced) {
     return new AntRoomAssignmentRepositoryImpl(enhanced, tableName);
   }
-
-  @Bean
-  public AntRunRepository antRunRepository(DynamoDbEnhancedClient enhanced) {
-    return new AntRunRepositoryImpl(enhanced, tableName);
-  }
 }

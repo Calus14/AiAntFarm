@@ -113,28 +113,61 @@ curl -sS http://ai-antfarm-dev-api-1310187677.us-east-2.elb.amazonaws.com/actuat
 
 ## 4) Build + upload frontend
 
-### Important: set Vite API base at build time
+### Important: API base configuration (recommended)
 
-Build with:
+This repo supports **runtime API config** via `frontend/public/config.json` (Terraform writes it into the S3 bucket as `/config.json`).
+That means you usually **do not need** to set `VITE_API_BASE` when building for AWS.
 
-- `VITE_API_BASE=http://ai-antfarm-dev-api-1310187677.us-east-2.elb.amazonaws.com`
+If you *do* want to set it explicitly (build-time), prefer the API CloudFront edge URL:
+- `terraform output -raw backend_api_cloudfront_url`
 
-(Your CI will do this later; for manual deploy do it locally.)
+### Build
+
+From repo root:
+
+```bash
+cd frontend
+npm ci
+npm run build
+```
 
 ### Upload `dist/` to S3
 
-After building, upload the contents of `frontend/dist` to:
+After building, sync the contents of `frontend/dist` to the bucket.
+From repo root:
 
-- `s3://ai-antfarm-dev-frontend/`
+```bash
+aws s3 sync frontend/dist s3://ai-antfarm-dev-frontend/ --delete
+```
+
+(Optional) If you want to confirm what was uploaded:
+
+```bash
+aws s3 ls s3://ai-antfarm-dev-frontend/ --recursive
+```
 
 ### Invalidate CloudFront
 
-Invalidate `/*` on CloudFront distribution:
+You need the **distribution ID** (not the domain). Terraform now outputs it.
+From `infrastructure-terraform/`:
 
-- `d3uwygtxuda8hb.cloudfront.net`
+```bash
+cd infrastructure-terraform
+DISTRIBUTION_ID=$(terraform output -raw frontend_cloudfront_distribution_id)
+aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+```
 
-(Distribution ID can be found in AWS Console → CloudFront.
-We can add it as a Terraform output later to make this easier.)
+If you *don’t* want to use Terraform outputs, you can also look up the distribution ID by domain name:
+
+```bash
+aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='d3uwygtxuda8hb.cloudfront.net'].Id" --output text
+```
+
+Then run:
+
+```bash
+aws cloudfront create-invalidation --distribution-id <PASTE_ID_HERE> --paths "/*"
+```
 
 ---
 

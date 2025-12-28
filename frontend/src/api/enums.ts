@@ -4,6 +4,16 @@ export enum SseEnvelopeType {
   // future: Join = 'join', Leave = 'leave', Typing = 'typing'
 }
 
+export enum AiModel {
+  MOCK = 'MOCK',
+  
+  OPENAI_GPT_4_1_NANO = "OPENAI_GPT_4_1_NANO",
+  OPENAI_GPT_4O_MINI = "OPENAI_GPT_4O_MINI",
+
+  // Anthropic
+  ANTHROPIC_HAIKU = 'ANTHROPIC_HAIKU',
+}
+
 export type SseEnvelope<T> = {
   type?: string;
   payload?: T;

@@ -34,7 +34,7 @@ public record Ant(
     Objects.requireNonNull(ownerUserId, "ownerUserId");
     if (ownerUserId.isBlank()) throw new IllegalArgumentException("ownerUserId required");
     if (name == null || name.isBlank()) throw new IllegalArgumentException("name required");
-    if (intervalSeconds < 5) throw new IllegalArgumentException("intervalSeconds must be >= 5");
+    if (intervalSeconds < 60) throw new IllegalArgumentException("intervalSeconds must be >= 60");
 
     AiModel safeModel = model == null ? AiModel.MOCK : model;
 
@@ -76,13 +76,17 @@ public record Ant(
       Boolean replyEvenIfNoNew
   ) {
     Instant now = Instant.now();
+
+    int nextInterval = intervalSeconds == null ? this.intervalSeconds : intervalSeconds;
+    if (nextInterval < 60) throw new IllegalArgumentException("intervalSeconds must be >= 60");
+
     return new Ant(
         this.id,
         this.ownerUserId,
         name == null ? this.name : name.trim(),
         model == null ? this.model : model,
         personalityPrompt == null ? this.personalityPrompt : personalityPrompt,
-        intervalSeconds == null ? this.intervalSeconds : intervalSeconds,
+        nextInterval,
         enabled == null ? this.enabled : enabled,
         replyEvenIfNoNew == null ? this.replyEvenIfNoNew : replyEvenIfNoNew,
         this.createdAt,

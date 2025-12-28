@@ -37,8 +37,8 @@ public class RepositoryConfig {
   }
 
   @Bean
-  public RoomMembershipRepository roomMembershipRepository(DynamoDbEnhancedClient enhanced) {
-    return new RoomMembershipRepositoryImpl(enhanced, tableName);
+  public RoomAntRoleRepository roomAntRoleRepository(DynamoDbEnhancedClient enhanced) {
+    return new RoomAntRoleRepositoryImpl(enhanced, tableName);
   }
 
   // --- Ants ---
@@ -51,10 +51,5 @@ public class RepositoryConfig {
   @Bean
   public AntRoomAssignmentRepository antRoomAssignmentRepository(DynamoDbEnhancedClient enhanced) {
     return new AntRoomAssignmentRepositoryImpl(enhanced, tableName);
-  }
-
-  @Bean
-  public AntRunRepository antRunRepository(DynamoDbEnhancedClient enhanced) {
-    return new AntRunRepositoryImpl(enhanced, tableName);
   }
 }

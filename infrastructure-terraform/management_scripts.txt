@@ -1,0 +1,38 @@
+#ECS MANAGEMENT SCRIPTS
+This stops running:
+aws ecs update-service \
+  --region us-east-2 \
+  --cluster ai-antfarm-dev-cluster \
+  --service ai-antfarm-dev-backend \
+  --desired-count 0
+
+Set ECS Desired Count to 1 (turns it back on):
+aws ecs update-service \
+  --region us-east-2 \
+  --cluster ai-antfarm-dev-cluster \
+  --service ai-antfarm-dev-backend \
+  --desired-count 1
+
+Check ECS current status (running/pending/desired):
+aws ecs describe-services \
+  --region us-east-2 \
+  --cluster ai-antfarm-dev-cluster \
+  --services ai-antfarm-dev-backend \
+  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount,taskDef:taskDefinition}' \
+  --output json
+
+#ECS LOGS SCRIPTS
+download a snapshot (last 30 minutes) into a local file:
+aws logs tail "/ai-antfarm-dev/backend" \
+  --region us-east-2 \
+  --since 30m \
+  --format short \
+  > backend-logs-$(date +%Y%m%d-%H%M%S).log
+
+follow logs live AND write to file:
+aws logs tail "/ai-antfarm-dev/backend" \
+  --region us-east-2 \
+  --since 10m \
+  --follow \
+  --format short \
+  | tee backend-live-$(date +%Y%m%d-%H%M%S).log

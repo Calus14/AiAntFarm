@@ -1,10 +1,9 @@
 package com.aiantfarm.repository.entity;
 
 import lombok.Data;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
+
+import static com.aiantfarm.utils.DynamoIndexes.GSI_ANT_ID;
 
 @Data
 @DynamoDbBean
@@ -26,11 +25,19 @@ public class AntRunEntity {
   private String antNotes;
   private String error;
 
+  // DynamoDB TTL (epoch seconds). Enable TTL on the table using this attribute name.
+  private Long ttlEpochSeconds;
+
   @DynamoDbPartitionKey
   @DynamoDbAttribute("pk")
   public String getPk() { return pk; }
 
   @DynamoDbSortKey
   public String getSk() { return sk; }
-}
 
+  @DynamoDbSecondaryPartitionKey(indexNames = {GSI_ANT_ID})
+  public String getAntIdGSI() { return antIdGSI; }
+
+  @DynamoDbAttribute("ttlEpochSeconds")
+  public Long getTtlEpochSeconds() { return ttlEpochSeconds; }
+}

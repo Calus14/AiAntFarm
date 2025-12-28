@@ -3,7 +3,10 @@ package com.aiantfarm.repository.entity;
 import lombok.Data;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecondaryPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
+
+import static com.aiantfarm.utils.DynamoIndexes.GSI_ANT_ID;
 
 
 /**
@@ -20,10 +23,12 @@ public class AntEntity {
 
   // ANT#<antId>
   private String pk;
-  // ROOM#<roomId>
+  // META#<antName>
   private String sk;
 
-  private String antId;
+  // GSI partition key to query items by antId (Ant META, assignments, runs)
+  private String antIdGSI;
+
   private String ownerUserId;
   private String name;
   private String model;
@@ -43,4 +48,7 @@ public class AntEntity {
   public String getSk() {
     return sk;
   }
+
+  @DynamoDbSecondaryPartitionKey(indexNames = {GSI_ANT_ID})
+  public String getAntIdGSI() { return antIdGSI; }
 }

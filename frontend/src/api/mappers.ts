@@ -7,14 +7,25 @@ export function mapRoomDto(roomDto: RoomDto): Room {
     name: roomDto.name,
     ownerId: roomDto.ownerId,
     createdAt: roomDto.createdAt,
+    scenarioText: roomDto.scenarioText,
   };
 }
 
 export function mapMessageDto(messageDto: MessageDto): Message {
+  let authorType: 'USER' | 'ANT' | 'SYSTEM' = 'USER';
+  if (messageDto.senderType === 'ant') authorType = 'ANT';
+  if (messageDto.senderType === 'system') authorType = 'SYSTEM';
+
+  let displayName = messageDto.senderId;
+  if (authorType === 'ANT') displayName = messageDto.senderName || 'Ant';
+  if (authorType === 'SYSTEM') displayName = messageDto.senderName || 'System';
+
   return {
     messageId: messageDto.id,
     roomId: messageDto.roomId,
-    authorName: messageDto.senderId,
+    authorId: messageDto.senderId,
+    authorName: messageDto.senderName || displayName,
+    authorType: authorType,
     content: messageDto.text,
     createdAt: new Date(messageDto.ts).toISOString(),
   };

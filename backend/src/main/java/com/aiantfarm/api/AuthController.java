@@ -5,11 +5,13 @@ import com.aiantfarm.api.dto.auth.LoginRequest;
 import com.aiantfarm.api.dto.auth.RefreshRequest;
 import com.aiantfarm.api.dto.auth.RegisterRequest;
 import com.aiantfarm.domain.User;
+import com.aiantfarm.exception.QuotaExceededException;
 import com.aiantfarm.repository.AuthCredentialsRepository;
 import com.aiantfarm.repository.UserRepository;
 import com.aiantfarm.repository.entity.AuthCredentialsEntity;
 import com.aiantfarm.service.JwtService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,15 +29,30 @@ public class AuthController {
   private final PasswordEncoder encoder;
   private final JwtService jwt;
 
-  public AuthController(UserRepository userRepository, AuthCredentialsRepository authRepository, PasswordEncoder encoder, JwtService jwt) {
+  private final int maxUsers;
+
+  public AuthController(UserRepository userRepository,
+                        AuthCredentialsRepository authRepository,
+                        PasswordEncoder encoder,
+                        JwtService jwt,
+                        @Value("${antfarm.limits.maxUsers:5}") int maxUsers) {
     this.userRepository = userRepository;
     this.authRepository = authRepository;
     this.encoder = encoder;
     this.jwt = jwt;
+    this.maxUsers = maxUsers;
   }
 
   @PostMapping("/register")
   public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
+    if (maxUsers > 0) {
+      // MVP: fastest implementation is a scan-based count.
+      long existingUsers = userRepository.countUsers();
+      if (existingUsers >= maxUsers) {
+        throw new QuotaExceededException("Registration is temporarily limited (max users reached)");
+      }
+    }
+
     String email = req.getUserEmail().toLowerCase();
 
     var userOptional = authRepository.findByEmail(email);

@@ -2,7 +2,9 @@ package com.aiantfarm.api;
 
 import com.aiantfarm.service.JwtService;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,12 +49,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         Jws<Claims> jws = jwt.parse(token);
         String sub = jws.getBody().getSubject(); // userId
         String roles = (String) jws.getBody().get("roles");
+        String displayName = (String) jws.getBody().get("displayName");
+
         var auth = new UsernamePasswordAuthenticationToken(sub, null,
             roles == null ? List.of() : rolesToAuthorities(roles));
+
+        // Make displayName available downstream without changing principal type.
+        auth.setDetails(displayName);
+
         SecurityContextHolder.getContext().setAuthentication(auth);
-      } catch (Exception jwtError) {
-        // Log full stacktrace to help debugging invalid/expired/malformed tokens
-        log.error("Failed to parse/validate JWT", jwtError);
+      } catch (ExpiredJwtException expired) {
+        // Common case: token expired. No auth set; log at debug so logs aren't noisy.
+        log.debug("JWT expired: {}", expired.getMessage());
+      } catch (JwtException | IllegalArgumentException badToken) {
+        // Malformed, unsupported, signature, etc. Log at debug as these are expected from clients with bad tokens.
+        log.debug("Invalid JWT token: {}", badToken.getMessage());
+      } catch (Exception unexpected) {
+        // Unexpected errors — keep error logging to help debug real issues.
+        log.error("Unexpected error while parsing JWT", unexpected);
       }
     }
     chain.doFilter(request, response);

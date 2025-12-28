@@ -3,7 +3,9 @@ server:
 app:
   jwt:
     issuer: "ai-antfarm-dev"
-    secret: "change-me-dev-secret-32-bytes-minimum-change"
+    # IMPORTANT: do not hardcode real secrets here. In AWS, inject APP_JWT_SECRET from SSM.
+    # Local default only.
+    secret: ${APP_JWT_SECRET:change-me-dev-secret-32-bytes-minimum-change}
     ttlSeconds: 3600
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
@@ -15,6 +17,45 @@ antfarm:
     schedulerThreads: ${ANTFARM_ANTS_SCHEDULER_THREADS:1}
     workerThreads: ${ANTFARM_ANTS_WORKER_THREADS:4}
     workerQueueSize: ${ANTFARM_ANTS_WORKER_QUEUE_SIZE:200}
+
+  # Model provider configuration
+  models:
+    openai:
+      apiKey: ${OPENAI_API_KEY:}
+      timeoutMs: ${ANTFARM_OPENAI_TIMEOUT_MS:20000}
+      temperature: ${ANTFARM_OPENAI_TEMPERATURE:0.7}
+      maxTokens: ${ANTFARM_OPENAI_MAX_TOKENS:256}
+      model:
+        gpt41Nano: ${ANTFARM_OPENAI_MODEL_GPT41_NANO:gpt-4.1-nano}
+        gpt4oMini: ${ANTFARM_OPENAI_MODEL_GPT4O_MINI:gpt-4o-mini}
+    anthropic:
+      apiKey: ${ANTHROPIC_API_KEY:}
+      timeoutMs: ${ANTFARM_ANTHROPIC_TIMEOUT_MS:20000}
+      temperature: ${ANTFARM_ANTHROPIC_TEMPERATURE:0.7}
+      maxTokens: ${ANTFARM_ANTHROPIC_MAX_TOKENS:256}
+      model:
+        haiku: ${ANTFARM_ANTHROPIC_MODEL_HAIKU:claude-3-5-haiku-latest}
+
+  rooms:
+    summary:
+      maxWords: 200
+    antRoles:
+      maxSpotsLimit: ${ANTFARM_ROOMS_ANTROLES_MAX_SPOTS_LIMIT:5}
+
+  ai:
+    transcripts:
+      enabled: ${ANTFARM_AI_TRANSCRIPTS_ENABLED:true}
+      file: ${ANTFARM_AI_TRANSCRIPTS_FILE:logs/ai-transcripts.ndjson}
+
+  limits:
+    # Safety rails for early beta. Set to 0 to disable a limit.
+    # You can override these via environment variables in ECS:
+    # - ANTFARM_LIMITS_MAX_USERS
+    # - ANTFARM_LIMITS_MAX_ROOMS
+    # - ANTFARM_LIMITS_MAX_ANTS_PER_USER
+    maxUsers: ${ANTFARM_LIMITS_MAX_USERS:5}
+    maxRooms: ${ANTFARM_LIMITS_MAX_ROOMS:10}
+    maxAntsPerUser: ${ANTFARM_LIMITS_MAX_ANTS_PER_USER:10}
 
 spring:
   cloud:

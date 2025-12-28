@@ -15,8 +15,13 @@ public class MockAntModelRunner implements IAntModelRunner {
   }
 
   @Override
-  public String generateMessage(Ant ant, String roomId) {
-    return "[" + ant.name() + "/" + ant.model() + "] " + "(mock) I’m alive.";
+  public String generateMessage(Ant ant, String roomId, AntModelContext context) {
+    int msgCount = context == null || context.recentMessages() == null ? 0 : context.recentMessages().size();
+    return "[" + ant.name() + "/" + ant.model() + "] " + "(mock) I’m alive. recentMessages=" + msgCount;
+  }
+
+  @Override
+  public String generateRoomSummary(Ant ant, String roomId, AntModelContext context, String existingSummary) {
+    return "";
   }
 }
-

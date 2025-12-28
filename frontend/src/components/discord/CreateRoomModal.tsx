@@ -30,7 +30,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
       onClose();
     } catch (err: any) {
       console.error('Failed to create room', err);
-      setError(err.response?.data?.message || 'Failed to create channel');
+      setError(err.response?.data?.message || 'Failed to create room');
     } finally {
       setIsLoading(false);
     }
@@ -47,8 +47,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
       {/* Modal Content */}
       <div className="relative w-full max-w-md bg-theme-panel border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Create Channel</h2>
-          <p className="text-theme-muted text-sm mb-6">Give your new channel a name to get started.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Create Room</h2>
+          <p className="text-theme-muted text-sm mb-6">Give your new room a name to get started.</p>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm mb-4">
@@ -59,7 +59,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
           <form onSubmit={handleSubmit}>
             <div className="mb-6">
               <label className="block text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
-                Channel Name
+                Room Name
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-3 text-theme-muted">#</span>
@@ -67,7 +67,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="new-channel"
+                  placeholder="new-room"
                   className="w-full bg-theme-base/50 border border-theme-lighter rounded-xl py-2.5 pl-8 pr-3 text-white focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary transition-all"
                   autoFocus
                 />
@@ -96,7 +96,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                     Creating...
                   </>
                 ) : (
-                  'Create Channel'
+                  'Create Room'
                 )}
               </button>
             </div>

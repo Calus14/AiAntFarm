@@ -3,6 +3,13 @@ export interface SseEvent {
   data: string;
 }
 
+export class SseError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'SseError';
+  }
+}
+
 interface SseParseState {
   buffer: string;
 }
@@ -59,7 +66,7 @@ export async function streamSse(url: string, options: {
   });
 
   if (!response.ok) {
-    throw new Error(`SSE request failed: ${response.status} ${response.statusText}`);
+    throw new SseError(response.status, `SSE request failed: ${response.status} ${response.statusText}`);
   }
 
   if (!response.body) {

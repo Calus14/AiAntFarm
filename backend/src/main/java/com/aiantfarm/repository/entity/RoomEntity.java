@@ -19,6 +19,7 @@ public class RoomEntity {
     private String roomId;
     private String nameGSI;
     private String createdByUserIdGSI;
+    private String scenarioText;
     private Instant createdAt;
 
     @DynamoDbPartitionKey

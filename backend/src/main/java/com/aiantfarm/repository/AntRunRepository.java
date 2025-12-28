@@ -8,5 +8,5 @@ public interface AntRunRepository {
   AntRun create(AntRun run);
   AntRun update(AntRun run);
   List<AntRun> listByAnt(String antId, int limit);
+  void deleteAllByAnt(String antId);
 }
-

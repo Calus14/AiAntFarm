@@ -2,11 +2,13 @@ package com.aiantfarm.api;
 
 import com.aiantfarm.api.dto.AntDto;
 import com.aiantfarm.api.dto.AssignAntToRoomRequest;
+import com.aiantfarm.api.dto.AssignAntRoomRoleRequest;
 import com.aiantfarm.api.dto.CreateAntRequest;
 import com.aiantfarm.api.dto.ListResponse;
 import com.aiantfarm.api.dto.UpdateAntRequest;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.service.IAntService;
+import com.aiantfarm.service.RoomAntRoleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,9 +22,11 @@ import java.util.Map;
 public class AntController {
 
   private final IAntService antService;
+  private final RoomAntRoleService roomAntRoleService;
 
-  public AntController(IAntService antService) {
+  public AntController(IAntService antService, RoomAntRoleService roomAntRoleService) {
     this.antService = antService;
+    this.roomAntRoleService = roomAntRoleService;
   }
 
   @PostMapping
@@ -94,11 +98,44 @@ public class AntController {
     }
   }
 
-  @GetMapping("/{antId}/runs")
-  public ResponseEntity<?> listRuns(@PathVariable String antId, @RequestParam(required = false) Integer limit) {
+  // Manual run trigger (no run history persisted)
+  @PostMapping("/{antId}/run")
+  public ResponseEntity<?> runNow(@PathVariable String antId) {
     String userId = currentUserId();
     try {
-      return ResponseEntity.ok(antService.listRuns(userId, antId, limit));
+      antService.runNow(userId, antId);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
+  @PutMapping("/{antId}/rooms/{roomId}/room-role")
+  public ResponseEntity<?> assignRoomRole(@PathVariable String antId,
+                                         @PathVariable String roomId,
+                                         @RequestBody AssignAntRoomRoleRequest req) {
+    String userId = currentUserId();
+    try {
+      roomAntRoleService.assignToAntInRoom(userId, antId, roomId, req);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
+  // DELETE an ant (owner-only). Removes assignments and cancels scheduler.
+  @DeleteMapping("/{antId}")
+  public ResponseEntity<?> delete(@PathVariable String antId) {
+    String userId = currentUserId();
+    try {
+      antService.deleteAnt(userId, antId);
+      return ResponseEntity.accepted().build();
     } catch (ResourceNotFoundException e) {
       return ResponseEntity.notFound().build();
     } catch (SecurityException e) {

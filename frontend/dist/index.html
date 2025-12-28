@@ -1,11 +1,28 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Ant Farm</title>
-    <script type="module" crossorigin src="/assets/index-Dbo6WTm8.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-3qf60oGp.css">
+    <script>
+      // Load runtime config (written by Terraform as /config.json)
+      // so we can change API endpoint without rebuilding.
+      window.__AI_ANTFARM_CONFIG__ = {};
+      (function () {
+        try {
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', '/config.json', false); // sync fetch so config is ready before app loads
+          xhr.send(null);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            window.__AI_ANTFARM_CONFIG__ = JSON.parse(xhr.responseText);
+          }
+        } catch (e) {
+          // ignore
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DLfzJNNF.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BRu1-YuV.css">
   </head>
   <body>
     <div id="root"></div>

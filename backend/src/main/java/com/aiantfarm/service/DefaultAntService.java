@@ -5,18 +5,22 @@ import com.aiantfarm.api.dto.*;
 import com.aiantfarm.domain.AiModel;
 import com.aiantfarm.domain.Ant;
 import com.aiantfarm.domain.AntRoomAssignment;
-import com.aiantfarm.domain.AntRun;
 import com.aiantfarm.domain.Message;
+import com.aiantfarm.domain.RoomAntRole;
+import com.aiantfarm.exception.QuotaExceededException;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.repository.*;
+import com.aiantfarm.service.ant.AntModelContext;
 import com.aiantfarm.service.ant.AntScheduler;
 import com.aiantfarm.service.ant.IAntModelRunner;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -26,25 +30,33 @@ public class DefaultAntService implements IAntService {
 
   private final AntRepository antRepository;
   private final AntRoomAssignmentRepository assignmentRepository;
-  private final AntRunRepository antRunRepository;
   private final RoomRepository roomRepository;
   private final MessageRepository messageRepository;
   private final AntScheduler antScheduler;
+  private final RoomAntRoleRepository roomAntRoleRepository;
+
+  // Rolling summary settings (MVP defaults). Long-term: move to @Value config.
+  private static final int SUMMARY_WINDOW_MESSAGES_SIZE = 30;
+  private static final int SUMMARY_MAX_CHARS = 8_000; // approx token cap proxy
+
+  private final int maxAntsPerUser;
 
   public DefaultAntService(
       AntRepository antRepository,
       AntRoomAssignmentRepository assignmentRepository,
-      AntRunRepository antRunRepository,
       RoomRepository roomRepository,
       MessageRepository messageRepository,
-      AntScheduler antScheduler
+      AntScheduler antScheduler,
+      RoomAntRoleRepository roomAntRoleRepository,
+      @Value("${antfarm.limits.maxAntsPerUser:10}") int maxAntsPerUser
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
-    this.antRunRepository = antRunRepository;
     this.roomRepository = roomRepository;
     this.messageRepository = messageRepository;
     this.antScheduler = antScheduler;
+    this.roomAntRoleRepository = roomAntRoleRepository;
+    this.maxAntsPerUser = maxAntsPerUser;
   }
 
   @PostConstruct
@@ -77,9 +89,20 @@ public class DefaultAntService implements IAntService {
 
   @Override
   public AntDto createAnt(String ownerUserId, CreateAntRequest req) {
+    if (maxAntsPerUser > 0) {
+      int existing = antRepository.listByOwnerUserId(ownerUserId).size();
+      if (existing >= maxAntsPerUser) {
+        throw new QuotaExceededException("Ant creation is temporarily limited (max ants reached)");
+      }
+    }
+
     if (req == null) throw new IllegalArgumentException("request required");
 
     int interval = req.getIntervalSeconds() == null ? 60 : req.getIntervalSeconds();
+    if (interval < 60) {
+      throw new IllegalArgumentException("intervalSeconds must be >= 60");
+    }
+
     boolean enabled = req.getEnabled() != null && req.getEnabled();
     boolean replyEvenIfNoNew = req.getReplyEvenIfNoNew() != null && req.getReplyEvenIfNoNew();
     AiModel model = req.getModel() == null ? AiModel.MOCK : req.getModel();
@@ -115,8 +138,8 @@ public class DefaultAntService implements IAntService {
     Ant ant = requireOwnedAnt(ownerUserId, antId);
 
     Integer intervalSeconds = req != null ? req.getIntervalSeconds() : null;
-    if (intervalSeconds != null && intervalSeconds < 5) {
-      throw new IllegalArgumentException("intervalSeconds must be >= 5");
+    if (intervalSeconds != null && intervalSeconds < 60) {
+      throw new IllegalArgumentException("intervalSeconds must be >= 60");
     }
 
     Ant updated = ant.withUpdated(
@@ -174,25 +197,36 @@ public class DefaultAntService implements IAntService {
   }
 
   @Override
-  public ListResponse<AntRunDto> listRuns(String ownerUserId, String antId, Integer limit) {
-    requireOwnedAnt(ownerUserId, antId);
-    int n = limit == null ? 50 : limit;
-    List<AntRunDto> items = antRunRepository.listByAnt(antId, n)
-        .stream().map(this::toRunDto).toList();
-    return new ListResponse<>(items);
-  }
-
-  @Override
   public ListResponse<AntRoomAssignmentDto> listAntsInRoom(String roomId) {
     if (roomId == null || roomId.isBlank()) {
       return new ListResponse<>(List.of());
     }
 
-    List<AntRoomAssignmentDto> items = assignmentRepository.listByRoom(roomId).stream()
-        .map(this::toAssignmentDto)
+    List<AntRoomAssignment> assignments = assignmentRepository.listByRoom(roomId);
+    
+    List<AntRoomAssignmentDto> items = assignments.stream()
+        .map(a -> {
+            Ant ant = antRepository.findById(a.antId()).orElse(null);
+            return toAssignmentDto(a, ant);
+        })
         .toList();
 
     return new ListResponse<>(items);
+  }
+
+  @Override
+  public void runNow(String ownerUserId, String antId) {
+    // Validate ownership and existence
+    requireOwnedAnt(ownerUserId, antId);
+
+    // If there are no assignments, nothing to run.
+    if (assignmentRepository.listByAnt(antId).isEmpty()) {
+      return;
+    }
+
+    // Run immediately (synchronously) using the same logic as scheduled ticks.
+    // This has the same SINGLE-POD semantics as the in-memory scheduler.
+    runAntTick(antId);
   }
 
   // --- scheduling ---
@@ -203,6 +237,7 @@ public class DefaultAntService implements IAntService {
 
   private void runAntTick(String antId) {
     try {
+      log.info("Ant tick started antId={}", antId);
       Ant ant = antRepository.findById(antId).orElse(null);
       if (ant == null || !ant.enabled()) {
         antScheduler.cancel(antId);
@@ -222,46 +257,148 @@ public class DefaultAntService implements IAntService {
     } catch (Exception e) {
       log.error("Unhandled error in ant tick antId={}", antId, e);
     }
+    log.info("Ant tick ended antId={}", antId);
   }
 
   private void runAntInRoom(Ant ant, AntRoomAssignment assignment) {
     String roomId = assignment.roomId();
+    log.info("Running ant in room antId={} roomId={}", ant.id(), roomId);
 
-    AntRun run = AntRun.started(ant.id(), ant.ownerUserId(), roomId);
-    antRunRepository.create(run);
+    // AntRuns removed: we no longer persist run history (major cost driver).
+
+    // Ensure role fields are always in scope throughout this method.
+    String roleNameForPrompt = "";
+    String rolePromptForPrompt = "";
 
     try {
-      var page = messageRepository.listByRoom(roomId, 1, null);
-      String latestMessageId = page.items().isEmpty() ? null : page.items().get(0).id();
+      // Load the message context window once per run.
+      // Repository returns newest -> oldest.
+      var ctxPage = messageRepository.listByRoom(roomId, SUMMARY_WINDOW_MESSAGES_SIZE, null);
+
+      // Scenario is not implemented yet. For now it's blank, but the plumbing is here.
+      String roomScenario = "";
+
+      // If a role is assigned, load the role prompt so the model can actually follow it.
+      roleNameForPrompt = assignment.roleName() == null ? "" : assignment.roleName();
+      rolePromptForPrompt = "";
+      if (assignment.roleId() != null && !assignment.roleId().isBlank()) {
+        try {
+          RoomAntRole role = roomAntRoleRepository.find(roomId, assignment.roleId()).orElse(null);
+          if (role != null) {
+            roleNameForPrompt = role.name() == null ? roleNameForPrompt : role.name();
+            rolePromptForPrompt = role.prompt() == null ? "" : role.prompt();
+          }
+        } catch (Exception e) {
+          log.warn("Failed to load role for ant prompt antId={} roomId={} roleId={} (continuing)",
+              ant.id(), roomId, assignment.roleId(), e);
+        }
+      }
+
+      String latestMessageId = ctxPage.items().isEmpty() ? null : ctxPage.items().get(0).id();
       boolean roomChanged = latestMessageId != null && !latestMessageId.equals(assignment.lastSeenMessageId());
 
+      // --- Rolling summary counter update ---
+      // We do NOT increment by 1 per run.
+      // An ant might run every 10 minutes and multiple messages could be posted between runs.
+      // We increment by the number of messages that are newer than the assignment's lastSeenMessageId,
+      // based on what we can observe in the current context window. If lastSeenMessageId is not present
+      // in the window, we conservatively assume at least (window size) new messages.
+      int newMessagesInWindow = countNewMessagesSinceLastSeen(ctxPage.items(), assignment.lastSeenMessageId());
+
+      AntRoomAssignment working = assignment;
+      if (roomChanged && newMessagesInWindow > 0) {
+        working = working.incrementSummaryCounter(newMessagesInWindow);
+      }
+
+      // If we've accumulated enough new messages OR there's no summary yet, regenerate rolling summary.
+      int counter = working.summaryMsgCounter() == null ? 0 : working.summaryMsgCounter();
+      boolean summaryMissing = working.roomSummary() == null || working.roomSummary().isBlank();
+      boolean shouldRegenSummary = roomChanged && (summaryMissing || counter >= SUMMARY_WINDOW_MESSAGES_SIZE);
+
+      if (shouldRegenSummary) {
+        IAntModelRunner runner = antScheduler.getRunner(ant.model());
+
+        AntModelContext summaryCtx = new AntModelContext(
+            ctxPage.items(),
+            working.roomSummary(),
+            roomScenario,
+            ant.personalityPrompt(),
+            roleNameForPrompt,
+            rolePromptForPrompt
+        );
+        String updatedSummary = runner.generateRoomSummary(ant, roomId, summaryCtx, working.roomSummary());
+
+        if (updatedSummary != null && !updatedSummary.isBlank()) {
+          // Reset counter after successful regen.
+          working = working.withSummary(trimToMax(updatedSummary, SUMMARY_MAX_CHARS), 0);
+        }
+      }
+
+      // Persist any summary changes before potential model call.
+      if (!Objects.equals(working, assignment)) {
+        assignmentRepository.update(working);
+      }
+
       if (!ant.replyEvenIfNoNew() && !roomChanged) {
-        AntRun finished = run.succeeded("Skipped: no new messages in room.");
-        antRunRepository.update(finished);
-        assignmentRepository.update(assignment.withLastSeen(assignment.lastSeenMessageId(), Instant.now()));
+        log.info("Skipped: no new messages in room antId={} roomId={}", ant.id(), roomId);
+        assignmentRepository.update(working.withLastSeen(working.lastSeenMessageId(), Instant.now()));
         return;
       }
 
+      // Build context including the rolling summary and (future) scenario.
+      var ctx = new AntModelContext(
+          ctxPage.items(),
+          working.roomSummary(),
+          roomScenario,
+          ant.personalityPrompt(),
+          roleNameForPrompt,
+          rolePromptForPrompt
+      );
+
       IAntModelRunner runner = antScheduler.getRunner(ant.model());
-      String content = runner.generateMessage(ant, roomId);
+      String content = runner.generateMessage(ant, roomId, ctx);
       if (content == null || content.isBlank()) {
         throw new IllegalStateException("Model runner returned blank content model=" + ant.model());
       }
 
-      Message msg = Message.createAntMsg(roomId, ant.id(), content);
+      Message msg = Message.createAntMsg(roomId, ant.id(), ant.name(), content);
       messageRepository.create(msg);
-      RoomController.broadcastMessage(roomId, msg);
+      RoomController.broadcastMessage(roomId, msg, ant.name());
+
       // The last message in the room is the one we just posted
       latestMessageId = msg.id();
 
-      AntRun finished = run.succeeded("Posted message to room. roomChanged=" + roomChanged);
-      antRunRepository.update(finished);
-      assignmentRepository.update(assignment.withLastSeen(latestMessageId, Instant.now()));
+      assignmentRepository.update(working.withLastSeen(latestMessageId, Instant.now()));
     } catch (Exception e) {
-      AntRun failed = run.failed(null, e.getMessage());
-      antRunRepository.update(failed);
       log.error("Ant run failed antId={} roomId={}", ant.id(), roomId, e);
     }
+  }
+
+  private static int countNewMessagesSinceLastSeen(List<Message> newestToOldest, String lastSeenMessageId) {
+    if (newestToOldest == null || newestToOldest.isEmpty()) return 0;
+    if (lastSeenMessageId == null || lastSeenMessageId.isBlank()) {
+      // First run: treat the whole window as new.
+      return newestToOldest.size();
+    }
+
+    for (int i = 0; i < newestToOldest.size(); i++) {
+      Message m = newestToOldest.get(i);
+      if (m != null && lastSeenMessageId.equals(m.id())) {
+        // Messages are newest->oldest, so items [0..i-1] are newer than last seen.
+        return i;
+      }
+    }
+
+    // lastSeenMessageId not in current window: at least window-size messages are newer.
+    return newestToOldest.size();
+  }
+
+  private static String trimToMax(String s, int maxChars) {
+    if (s == null) return "";
+    if (maxChars <= 0) return s;
+    String t = s.trim();
+    if (t.length() <= maxChars) return t;
+    return t.substring(t.length() - maxChars);
   }
 
   // --- helpers ---
@@ -289,22 +426,7 @@ public class DefaultAntService implements IAntService {
     );
   }
 
-  private AntRunDto toRunDto(AntRun r) {
-    Long startedMs = r.startedAt() != null ? r.startedAt().toEpochMilli() : null;
-    Long finishedMs = r.finishedAt() != null ? r.finishedAt().toEpochMilli() : null;
-    return new AntRunDto(
-        r.id(),
-        r.antId(),
-        r.roomId(),
-        r.status().name(),
-        startedMs,
-        finishedMs,
-        r.antNotes(),
-        r.error()
-    );
-  }
-
-  private AntRoomAssignmentDto toAssignmentDto(AntRoomAssignment a) {
+  private AntRoomAssignmentDto toAssignmentDto(AntRoomAssignment a, Ant ant) {
     Long lastRunAtMs = a.lastRunAt() != null ? a.lastRunAt().toEpochMilli() : null;
     return new AntRoomAssignmentDto(
         a.antId(),
@@ -312,9 +434,33 @@ public class DefaultAntService implements IAntService {
         a.createdAt() != null ? a.createdAt().toString() : null,
         a.updatedAt() != null ? a.updatedAt().toString() : null,
         a.lastSeenMessageId(),
-        lastRunAtMs
+        lastRunAtMs,
+        a.roleId(),
+        a.roleName(),
+        ant != null ? ant.name() : null,
+        ant != null ? ant.model().name() : null
     );
   }
 
 
+  @Override
+  public void deleteAnt(String ownerUserId, String antId) {
+    requireOwnedAnt(ownerUserId, antId);
+
+    // Cancel scheduler
+    antScheduler.cancel(antId);
+
+    // Remove assignments
+    try {
+      List<AntRoomAssignment> assignments = assignmentRepository.listByAnt(antId);
+      for (AntRoomAssignment a : assignments) {
+        assignmentRepository.unassign(antId, a.roomId());
+      }
+    } catch (Exception e) {
+      log.warn("Failed to remove assignments for antId={} (continuing)", antId, e);
+    }
+
+    // Delete ant meta
+    antRepository.delete(antId);
+  }
 }

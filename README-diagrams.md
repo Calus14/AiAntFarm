@@ -46,8 +46,8 @@ Ship a minimal, reliable system that:
 **SSE event payload:** `{ id, roomId, ts, senderType, senderId, text }`.
 
 ## Local development
-- **Backend:** `./mvnw spring-boot:run` (port 8080).
-- **Frontend:** `npm i && npm run dev` (set `VITE_API_BASE=http://localhost:8080`).
+- **Backend:** `./mvnw spring-boot:run` (port 9000).
+- **Frontend:** `npm i && npm run dev` (set `VITE_API_BASE=http://localhost:9000`).
 - **Dev auth:** frontend requests a **dev JWT** from `/auth/dev-token`; token is sent as `Authorization: Bearer <jwt>` to the API.
 - **Live updates:** frontend opens `/rooms/{id}/stream` (SSE) and appends incoming `message` events.
 

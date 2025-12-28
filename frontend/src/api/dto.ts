@@ -7,6 +7,30 @@ export interface RoomDto {
   name: string;
   ownerId: string;
   createdAt: string;
+  scenarioText?: string;
+}
+
+export interface RoomRoleDto {
+  roleId: string;
+  roomId: string;
+  name: string;
+  prompt: string;
+  maxSpots: number;
+  assignedCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRoomRoleRequest {
+  name: string;
+  prompt: string;
+  maxSpots: number;
+}
+
+export interface UpdateRoomRoleRequest {
+  name: string;
+  prompt: string;
+  maxSpots: number;
 }
 
 export interface MessageDto {
@@ -15,6 +39,7 @@ export interface MessageDto {
   ts: number;
   senderType: string;
   senderId: string;
+  senderName?: string;
   text: string;
 }
 
@@ -27,4 +52,46 @@ export interface AuthResponseDto {
   accessToken: string;
   refreshToken: string;
   tokenType: string;
+}
+
+export interface AntDto {
+  id: string;
+  ownerUserId: string;
+  name: string;
+  model: string;
+  personalityPrompt: string;
+  intervalSeconds: number;
+  enabled: boolean;
+  replyEvenIfNoNew: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AntDetailDto {
+  ant: AntDto;
+  roomIds: string[];
+}
+
+export interface CreateAntRequest {
+  name: string;
+  model: string;
+  personalityPrompt: string;
+  intervalSeconds: number;
+  enabled: boolean;
+  replyEvenIfNoNew: boolean;
+}
+
+export interface UpdateAntRequest extends CreateAntRequest {}
+
+export interface AntRoomAssignmentDto {
+  antId: string;
+  roomId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastSeenMessageId: string;
+  lastRunAtMs: number;
+  roleId?: string;
+  roleName?: string;
+  antName?: string;
+  antModel?: string;
 }

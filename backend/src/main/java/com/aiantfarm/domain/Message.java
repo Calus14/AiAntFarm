@@ -13,7 +13,8 @@ public record Message(
     @NotBlank String id,
     @NotBlank String roomId,
     AuthorType authorType,
-    String authorUserId,     // nullable if not USER
+    String authorId,     // nullable if not USER
+    String authorName,
     @NotBlank String content,
     @NotNull Instant createdAt
 ) {
@@ -25,24 +26,21 @@ public record Message(
     if (id.isBlank()) throw new IllegalArgumentException("id cannot be blank");
     if (roomId.isBlank()) throw new IllegalArgumentException("roomId cannot be blank");
     if (content.isBlank()) throw new IllegalArgumentException("content cannot be blank");
-    if (authorType == AuthorType.USER && (authorUserId == null || authorUserId.isBlank())) {
-      throw new IllegalArgumentException("authorUserId required when authorType=USER");
+    if (authorType == AuthorType.USER && (authorId == null || authorId.isBlank())) {
+      throw new IllegalArgumentException("authorId required when authorType=USER");
     }
   }
 
-  public static Message createUserMsg(String roomId, String authorUserId, String content) {
-    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.USER, authorUserId, content, Instant.now());
-    }
-
-  public static Message createAntMsg(String roomId, String content) {
-    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.ANT, null, content, Instant.now());
+  public static Message createUserMsg(String roomId, String authorUserId, String userName, String content) {
+    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.USER, authorUserId, userName, content, Instant.now());
   }
 
-  public static Message createAntMsg(String roomId, String antId, String content) {
-    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.ANT, antId, content, Instant.now());
+
+  public static Message createAntMsg(String roomId, String antId, String antName, String content) {
+    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.ANT, antId, antName, content, Instant.now());
   }
 
   public static Message createSystemMsg(String roomId, String content) {
-    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.SYSTEM, null, content, Instant.now());
+    return new Message(UUID.randomUUID().toString(), roomId, AuthorType.SYSTEM, null, "System", content, Instant.now());
   }
 }

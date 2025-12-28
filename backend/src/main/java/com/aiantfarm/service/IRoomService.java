@@ -11,5 +11,12 @@ public interface IRoomService {
 
   RoomDetailDto getRoomDetail(String roomId);
 
-  MessageDto postMessage(String userId, String roomId, PostMessageRequest req);
+  MessageDto postMessage(String userId, String userName, String roomId, PostMessageRequest req);
+
+  /**
+   * Delete a room (owner-only).
+   *
+   * MVP behavior: deletes room metadata and best-effort deletes room-scoped data (roles, assignments, messages).
+   */
+  void deleteRoom(String ownerUserId, String roomId);
 }

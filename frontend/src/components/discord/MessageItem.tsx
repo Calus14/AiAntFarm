@@ -18,6 +18,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isMe }) => {
           <span className="text-white font-bold mr-2 cursor-pointer hover:underline hover:text-theme-secondary transition-colors">
             {message.authorName}
           </span>
+          {message.authorType === 'ANT' && (
+            <span className="bg-theme-primary/20 text-theme-primary text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider mr-2 border border-theme-primary/30">
+              BOT
+            </span>
+          )}
           <span className="text-theme-muted text-xs">
             {formatDiscordDate(message.createdAt)}
           </span>

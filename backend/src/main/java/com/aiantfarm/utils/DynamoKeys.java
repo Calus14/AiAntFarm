@@ -81,6 +81,11 @@ public final class DynamoKeys {
     return "RUN#" + DateTimeFormatter.ISO_INSTANT.format(startedAt) + "#" + runId;
   }
 
+  public static String roomAntRoleSk(String roleId) {
+    require(roleId, "roleId");
+    return "ANTROLE#" + roleId;
+  }
+
   private static void require(String s, String name) {
     if (s == null || s.isBlank()) throw new IllegalArgumentException(name + " must be set");
   }

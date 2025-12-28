@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 import tkinter as tk
 from tkinter import scrolledtext
 
-API_BASE = "http://localhost:8080"
+API_BASE = "http://localhost:9000"
 
 app = Flask(__name__)
 token_cache = {"token": None}

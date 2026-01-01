@@ -16,6 +16,8 @@ public class UserEntity {
     private String userEmail;
     private boolean active;
     private Instant createdAt;
+    private Integer antLimit;
+    private Integer antRoomLimit;
 
     @DynamoDbPartitionKey
     public String getPk() { return pk; }

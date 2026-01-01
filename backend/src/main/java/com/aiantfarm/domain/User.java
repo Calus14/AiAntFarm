@@ -2,8 +2,8 @@ package com.aiantfarm.domain;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+
 import java.time.Instant;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -15,13 +15,15 @@ public record User(
     @NotBlank String userEmail,
     @NotBlank String displayName,
     @NotNull Instant createdAt,
-    boolean active
+    boolean active,
+
+    // Quota / limits for this user.
+    Integer antLimit,
+    Integer antRoomLimit
 ) {
-  public User {
-  }
 
   /** Convenience factory that assigns a random UUID and current timestamp. */
   public static User create(String userEmail, String displayName) {
-    return new User(UUID.randomUUID().toString(), userEmail, displayName, Instant.now(), true);
+    return new User(UUID.randomUUID().toString(), userEmail, displayName, Instant.now(), true, null, null);
   }
 }

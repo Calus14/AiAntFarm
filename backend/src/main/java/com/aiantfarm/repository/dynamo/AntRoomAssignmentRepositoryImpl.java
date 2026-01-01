@@ -112,6 +112,7 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
     e.setUpdatedAt(a.updatedAt() != null ? a.updatedAt().toString() : Instant.EPOCH.toString());
     e.setLastSeenMessageId(a.lastSeenMessageId());
     e.setLastRunAt(a.lastRunAt() != null ? a.lastRunAt().toString() : null);
+    e.setLimitReachedNotificationSent(a.limitReachedNotificationSent());
 
     // role assignment
     e.setRoleId(a.roleId());
@@ -135,6 +136,7 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
         updatedAt,
         e.getLastSeenMessageId(),
         lastRunAt,
+        e.getLimitReachedNotificationSent() != null && e.getLimitReachedNotificationSent(),
         e.getRoleId(),
         e.getRoleName(),
         e.getRoomSummary(),

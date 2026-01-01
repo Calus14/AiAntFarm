@@ -117,6 +117,9 @@ public class AntRepositoryImpl implements AntRepository {
     e.setIntervalSeconds(a.intervalSeconds());
     e.setEnabled(a.enabled());
     e.setReplyEvenIfNoNew(a.replyEvenIfNoNew());
+    e.setMaxMessagesPerWeek(a.maxMessagesPerWeek());
+    e.setMessagesSentThisPeriod(a.messagesSentThisPeriod());
+    e.setPeriodStartDate(a.periodStartDate() != null ? a.periodStartDate().toString() : Instant.EPOCH.toString());
     e.setCreatedAt(a.createdAt() != null ? a.createdAt().toString() : Instant.EPOCH.toString());
     e.setUpdatedAt(a.updatedAt() != null ? a.updatedAt().toString() : Instant.EPOCH.toString());
     return e;
@@ -125,6 +128,7 @@ public class AntRepositoryImpl implements AntRepository {
   private static Ant fromEntity(AntEntity e) {
     Instant createdAt = e.getCreatedAt() != null ? Instant.parse(e.getCreatedAt()) : Instant.EPOCH;
     Instant updatedAt = e.getUpdatedAt() != null ? Instant.parse(e.getUpdatedAt()) : Instant.EPOCH;
+    Instant periodStart = e.getPeriodStartDate() != null ? Instant.parse(e.getPeriodStartDate()) : Instant.EPOCH;
 
     AiModel model;
     try {
@@ -142,6 +146,9 @@ public class AntRepositoryImpl implements AntRepository {
         e.getIntervalSeconds() != null ? e.getIntervalSeconds() : 60,
         e.getEnabled() != null && e.getEnabled(),
         e.getReplyEvenIfNoNew() != null && e.getReplyEvenIfNoNew(),
+        e.getMaxMessagesPerWeek() != null ? e.getMaxMessagesPerWeek() : 500,
+        e.getMessagesSentThisPeriod() != null ? e.getMessagesSentThisPeriod() : 0,
+        periodStart,
         createdAt,
         updatedAt
     );

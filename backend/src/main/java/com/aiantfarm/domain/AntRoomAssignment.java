@@ -16,6 +16,9 @@ public record AntRoomAssignment(
     String lastSeenMessageId,
     Instant lastRunAt,
 
+    // If true, we already posted the "weekly quota reached" message to this room for the current quota period.
+    Boolean limitReachedNotificationSent,
+
     // Ant role for this specific room. Only ants can have roles.
     String roleId,
     String roleName,
@@ -36,12 +39,13 @@ public record AntRoomAssignment(
     if (roomId.isBlank()) throw new IllegalArgumentException("roomId required");
 
     Instant now = Instant.now();
-    return new AntRoomAssignment(antId, roomId, now, now, null, null, null, null, null, 0);
+    return new AntRoomAssignment(antId, roomId, now, now, null, null, false, null, null, null, 0);
   }
 
   public AntRoomAssignment withLastSeen(String lastSeenMessageId, Instant lastRunAt) {
     Instant now = Instant.now();
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, lastSeenMessageId, lastRunAt,
+        this.limitReachedNotificationSent,
         this.roleId, this.roleName,
         this.roomSummary, this.summaryMsgCounter);
   }
@@ -49,7 +53,16 @@ public record AntRoomAssignment(
   public AntRoomAssignment withRole(String roleId, String roleName) {
     Instant now = Instant.now();
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
+        this.limitReachedNotificationSent,
         roleId, roleName,
+        this.roomSummary, this.summaryMsgCounter);
+  }
+
+  public AntRoomAssignment withLimitReachedNotificationSent(boolean sent) {
+    Instant now = Instant.now();
+    return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
+        sent,
+        this.roleId, this.roleName,
         this.roomSummary, this.summaryMsgCounter);
   }
 
@@ -58,6 +71,7 @@ public record AntRoomAssignment(
     int next = Math.max(0, current + Math.max(0, delta));
     Instant now = Instant.now();
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
+        this.limitReachedNotificationSent,
         this.roleId, this.roleName,
         this.roomSummary, next);
   }
@@ -65,6 +79,7 @@ public record AntRoomAssignment(
   public AntRoomAssignment withSummary(String roomSummary, int resetCounterTo) {
     Instant now = Instant.now();
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
+        this.limitReachedNotificationSent,
         this.roleId, this.roleName,
         roomSummary, Math.max(0, resetCounterTo));
   }

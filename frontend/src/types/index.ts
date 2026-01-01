@@ -5,6 +5,10 @@ export interface User {
   userEmail: string;
   displayName: string;
   active: boolean;
+
+  // Limits / quotas
+  antLimit?: number;
+  antRoomLimit?: number;
 }
 
 export interface Room {

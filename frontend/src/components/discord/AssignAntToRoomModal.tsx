@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { antApi } from '../../api/ants';
 import type { RoomDto } from '../../api/dto';
 import { getRoomsCached } from '../../api/roomsCache';
+import { useAuth } from '../../context/AuthContext';
 
 interface AssignAntToRoomModalProps {
   isOpen: boolean;
@@ -18,13 +19,14 @@ export const AssignAntToRoomModal: React.FC<AssignAntToRoomModalProps> = ({
   onClose,
   onAssigned,
 }) => {
-  const MAX_ROOM_ASSIGNMENTS = 5;
+  const { user } = useAuth();
+  const maxRoomAssignments = user?.antRoomLimit ?? 3;
   const [loading, setLoading] = useState(false);
   const [rooms, setRooms] = useState<RoomDto[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const atAssignmentLimit = (currentRoomIds?.length ?? 0) >= MAX_ROOM_ASSIGNMENTS;
+  const atAssignmentLimit = (currentRoomIds?.length ?? 0) >= maxRoomAssignments;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,7 +59,7 @@ export const AssignAntToRoomModal: React.FC<AssignAntToRoomModalProps> = ({
       return;
     }
     setSelectedRoomId(available[0]?.roomId ?? '');
-  }, [isOpen, available]);
+  }, [isOpen, available, atAssignmentLimit]);
 
   const handleAssign = async () => {
     if (atAssignmentLimit) return;
@@ -67,8 +69,9 @@ export const AssignAntToRoomModal: React.FC<AssignAntToRoomModalProps> = ({
       await antApi.assignToRoom(antId, selectedRoomId);
       onAssigned();
       onClose();
-    } catch (err) {
-      console.error('Failed to assign ant to room', err);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+      alert(msg || 'Failed to assign ant to room');
     } finally {
       setSaving(false);
     }
@@ -93,9 +96,9 @@ export const AssignAntToRoomModal: React.FC<AssignAntToRoomModalProps> = ({
           {atAssignmentLimit && (
             <div
               className="text-xs text-theme-muted"
-              title={`Max ${MAX_ROOM_ASSIGNMENTS} room assignments per ant. Unassign one from the Assigned rooms table first.`}
+              title={`Max ${maxRoomAssignments} room assignments per ant. Unassign one from the Assigned rooms table first.`}
             >
-              Max {MAX_ROOM_ASSIGNMENTS} room assignments reached. Unassign one first.
+              Max {maxRoomAssignments} room assignments reached. Unassign one first.
             </div>
           )}
 
@@ -134,7 +137,7 @@ export const AssignAntToRoomModal: React.FC<AssignAntToRoomModalProps> = ({
               disabled={saving || atAssignmentLimit || !selectedRoomId || available.length === 0}
               onClick={handleAssign}
               className="px-6 py-2 rounded-xl bg-linear-to-r from-theme-primary to-theme-secondary text-white font-bold text-sm shadow-lg shadow-theme-primary/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={atAssignmentLimit ? `Max ${MAX_ROOM_ASSIGNMENTS} assignments reached.` : undefined}
+              title={atAssignmentLimit ? `Max ${maxRoomAssignments} assignments reached.` : undefined}
             >
               {saving ? 'Assigning...' : 'Assign'}
             </button>

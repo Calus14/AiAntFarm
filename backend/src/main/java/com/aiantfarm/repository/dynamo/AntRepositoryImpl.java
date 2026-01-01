@@ -21,15 +21,10 @@ public class AntRepositoryImpl implements AntRepository {
   private final DynamoDbTable<AntEntity> table;
   private final DynamoDbIndex<AntEntity> antIndex;
 
-  private static final int defaultAntWeeklyMessages;
-
-
   public AntRepositoryImpl(DynamoDbEnhancedClient enhancedClient,
-                           String tableName,
-                           @Value("${antfarm.limits.defaultAntWeeklyMessages:500}") int defaultAntWeeklyMessages) {
+                           String tableName) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(AntEntity.class));
     this.antIndex = table.index(GSI_ANT_ID);
-    this.defaultAntWeeklyMessages = defaultAntWeeklyMessages;
   }
 
   @Override
@@ -152,7 +147,8 @@ public class AntRepositoryImpl implements AntRepository {
         e.getIntervalSeconds() != null ? e.getIntervalSeconds() : 60,
         e.getEnabled() != null && e.getEnabled(),
         e.getReplyEvenIfNoNew() != null && e.getReplyEvenIfNoNew(),
-        e.getMaxMessagesPerWeek() != null ? e.getMaxMessagesPerWeek() : defaultAntWeeklyMessages,
+        // Default maxMessagesPerWeek to 500 if null - cant use application config because its a static method
+        e.getMaxMessagesPerWeek() != null ? e.getMaxMessagesPerWeek() : 500,
         e.getMessagesSentThisPeriod() != null ? e.getMessagesSentThisPeriod() : 0,
         periodStart,
         createdAt,

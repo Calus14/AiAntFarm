@@ -4,6 +4,7 @@ import type { AntDto, AntDetailDto, CreateAntRequest, UpdateAntRequest } from '.
 import { AiModel } from '../../api/enums';
 import { AssignAntToRoomModal } from './AssignAntToRoomModal';
 import { getRoomsCached, getRoomName } from '../../api/roomsCache';
+import { useAuth } from '../../context/AuthContext';
 
 type Mode = 'create' | 'edit';
 
@@ -24,6 +25,7 @@ function pickEditableFields(ant: AntDto) {
     intervalSeconds: ant.intervalSeconds,
     enabled: ant.enabled,
     replyEvenIfNoNew: ant.replyEvenIfNoNew,
+    maxMessagesPerWeek: ant.maxMessagesPerWeek,
   };
 }
 
@@ -35,7 +37,14 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   onSaved,
   onDeleted,
 }) => {
-  const MAX_ROOM_ASSIGNMENTS = 5;
+  const { user } = useAuth();
+
+  const maxRoomAssignments = user?.antRoomLimit ?? 3;
+
+  // Enforce UI constraints
+  const MIN_INTERVAL_SECONDS = 300; // 5 minutes
+  const DEFAULT_INTERVAL_SECONDS = 600; // 10 minutes
+  const DEFAULT_MAX_MESSAGES_PER_WEEK = 500;
 
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<AntDetailDto | null>(null);
@@ -44,9 +53,10 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   const [name, setName] = useState('');
   const [modelValue, setModelValue] = useState<AiModel>(AiModel.MOCK);
   const [prompt, setPrompt] = useState('');
-  const [intervalSeconds, setIntervalSeconds] = useState(300);
+  const [intervalSeconds, setIntervalSeconds] = useState(DEFAULT_INTERVAL_SECONDS);
   const [enabled, setEnabled] = useState(true);
   const [replyEvenIfNoNew, setReplyEvenIfNoNew] = useState(false);
+  const [maxMessagesPerWeek, setMaxMessagesPerWeek] = useState(DEFAULT_MAX_MESSAGES_PER_WEEK);
 
   const [showAssign, setShowAssign] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,9 +72,10 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
         name: '',
         model: AiModel.MOCK,
         personalityPrompt: '',
-        intervalSeconds: 300,
+        intervalSeconds: DEFAULT_INTERVAL_SECONDS,
         enabled: true,
         replyEvenIfNoNew: false,
+        maxMessagesPerWeek: DEFAULT_MAX_MESSAGES_PER_WEEK,
       };
       setInitial(defaults);
       setName(defaults.name);
@@ -73,6 +84,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
       setIntervalSeconds(defaults.intervalSeconds);
       setEnabled(defaults.enabled);
       setReplyEvenIfNoNew(defaults.replyEvenIfNoNew);
+      setMaxMessagesPerWeek(defaults.maxMessagesPerWeek);
     };
 
     const load = async () => {
@@ -99,9 +111,11 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
         setName(editable.name);
         setModelValue(editable.model);
         setPrompt(editable.personalityPrompt);
-        setIntervalSeconds(editable.intervalSeconds);
+        // Clamp interval to enforce minimum UI constraint, even if older ants have smaller intervals.
+        setIntervalSeconds(Math.max(editable.intervalSeconds, MIN_INTERVAL_SECONDS));
         setEnabled(editable.enabled);
         setReplyEvenIfNoNew(editable.replyEvenIfNoNew);
+        setMaxMessagesPerWeek(editable.maxMessagesPerWeek);
       } catch (err) {
         console.error('Failed to load ant', err);
       } finally {
@@ -120,8 +134,9 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
       intervalSeconds,
       enabled,
       replyEvenIfNoNew,
+      maxMessagesPerWeek,
     };
-  }, [name, modelValue, prompt, intervalSeconds, enabled, replyEvenIfNoNew]);
+  }, [name, modelValue, prompt, intervalSeconds, enabled, replyEvenIfNoNew, maxMessagesPerWeek]);
 
   const isDirty = useMemo(() => {
     if (!initial) return false;
@@ -129,21 +144,25 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   }, [initial, current]);
 
   const canSave = mode === 'create'
-    ? !!name.trim() && !!prompt.trim() && intervalSeconds >= 60
+    ? !!name.trim() && !!prompt.trim() && intervalSeconds >= MIN_INTERVAL_SECONDS && maxMessagesPerWeek >= 1
     : isDirty;
 
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
     try {
+      // Final clamp before sending to API
+      const clampedInterval = Math.max(intervalSeconds, MIN_INTERVAL_SECONDS);
+
       if (mode === 'create') {
         const req: CreateAntRequest = {
           name: name.trim(),
           model: modelValue,
           personalityPrompt: prompt,
-          intervalSeconds,
+          intervalSeconds: clampedInterval,
           enabled,
           replyEvenIfNoNew,
+          maxMessagesPerWeek,
         };
         await antApi.create(req);
         onSaved();
@@ -157,15 +176,17 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
         name: name.trim(),
         model: modelValue,
         personalityPrompt: prompt,
-        intervalSeconds,
+        intervalSeconds: clampedInterval,
         enabled,
         replyEvenIfNoNew,
+        maxMessagesPerWeek,
       };
       await antApi.update(antId, req);
       setInitial(current);
       onSaved();
-    } catch (err) {
-      console.error('Failed to save ant', err);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+      alert(msg || 'Failed to save ant');
     } finally {
       setSaving(false);
     }
@@ -208,10 +229,10 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   };
 
   const assignedRoomIds = useMemo(() => {
-    return (detail?.roomIds ?? []).slice(0, MAX_ROOM_ASSIGNMENTS);
-  }, [detail?.roomIds]);
+    return (detail?.roomIds ?? []).slice(0, maxRoomAssignments);
+  }, [detail?.roomIds, maxRoomAssignments]);
 
-  const atAssignmentLimit = (detail?.roomIds?.length ?? 0) >= MAX_ROOM_ASSIGNMENTS;
+  const atAssignmentLimit = (detail?.roomIds?.length ?? 0) >= maxRoomAssignments;
 
   const handleUnassign = async (roomId: string) => {
     if (!antId) return;
@@ -221,14 +242,18 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
       await antApi.unassignFromRoom(antId, roomId);
       await refreshDetail();
       onSaved();
-    } catch (err) {
-      console.error('Failed to unassign ant from room', err);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+      alert(msg || 'Failed to unassign');
     } finally {
       setUnassigningRoomId(null);
     }
   };
 
   if (!isOpen) return null;
+
+  const usedMsgs = detail?.ant?.messagesSentThisPeriod;
+  const maxMsgs = detail?.ant?.maxMessagesPerWeek ?? maxMessagesPerWeek;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -256,6 +281,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
                     type="button"
                     onClick={() => setShowAssign(true)}
                     className="flex-1 px-4 py-2 rounded-xl bg-theme-base/40 border border-white/10 text-white hover:bg-theme-base/60 transition-colors font-semibold"
+                    title={atAssignmentLimit ? `Max ${maxRoomAssignments} room assignments reached. Unassign one first.` : 'Assign this ant to a room'}
                   >
                     Assign Ant To Room
                   </button>
@@ -303,123 +329,139 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
                   <label className="block text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">Interval (seconds)</label>
                   <input
                     type="number"
-                    min={60}
+                    min={MIN_INTERVAL_SECONDS}
+                    step={60}
                     value={intervalSeconds}
                     onChange={(e) => setIntervalSeconds(parseInt(e.target.value || '0', 10))}
                     className="w-full bg-theme-base/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                    title={`Minimum is ${MIN_INTERVAL_SECONDS}s (5 minutes). Default is ${DEFAULT_INTERVAL_SECONDS}s (10 minutes).`}
                   />
+                  <div className="text-[11px] text-theme-muted mt-1">Min: {MIN_INTERVAL_SECONDS}s • Default: {DEFAULT_INTERVAL_SECONDS}s</div>
                 </div>
 
-                <div className="flex items-center gap-4 pt-7">
-                  <label className="flex items-center gap-2 text-sm text-white">
-                    <input
-                      type="checkbox"
-                      checked={enabled}
-                      onChange={(e) => setEnabled(e.target.checked)}
-                      className="rounded border-white/10 bg-theme-base/50 text-theme-primary focus:ring-theme-primary"
-                    />
-                    Enabled
-                  </label>
-
-                  <label className="flex items-center gap-2 text-sm text-white">
-                    <input
-                      type="checkbox"
-                      checked={replyEvenIfNoNew}
-                      onChange={(e) => setReplyEvenIfNoNew(e.target.checked)}
-                      className="rounded border-white/10 bg-theme-base/50 text-theme-primary focus:ring-theme-primary"
-                    />
-                    Reply always
-                  </label>
+                <div>
+                  <label className="block text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">Weekly Messages</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100000}
+                    value={maxMessagesPerWeek}
+                    onChange={(e) => setMaxMessagesPerWeek(parseInt(e.target.value || '0', 10))}
+                    disabled
+                    className="no-spinner w-full bg-theme-base/50 border border-white/10 rounded-xl p-3 text-white/70 opacity-70 cursor-not-allowed"
+                    title="Locked feature: weekly message budget is controlled by the system for now."
+                  />
+                  <div className="text-[11px] text-theme-muted mt-1" title="Usage resets every 7 days from the ant’s period start.">
+                    Used: {usedMsgs == null ? '—' : usedMsgs} / {maxMsgs} • Locked
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm text-white">
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={(e) => setEnabled(e.target.checked)}
+                    className="rounded border-white/10 bg-theme-base/50 text-theme-primary focus:ring-theme-primary"
+                  />
+                  Enabled
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-white">
+                  <input
+                    type="checkbox"
+                    checked={replyEvenIfNoNew}
+                    onChange={(e) => setReplyEvenIfNoNew(e.target.checked)}
+                    className="rounded border-white/10 bg-theme-base/50 text-theme-primary focus:ring-theme-primary"
+                  />
+                  Reply always
+                </label>
               </div>
 
               {mode === 'edit' && detail && (
                 <div
                   className="text-xs text-theme-muted"
-                  title={atAssignmentLimit ? `Max ${MAX_ROOM_ASSIGNMENTS} room assignments per ant. Unassign one to add another.` : undefined}
+                  title={atAssignmentLimit ? `Max ${maxRoomAssignments} room assignments per ant. Unassign one to add another.` : undefined}
                 >
-                  <div className="font-semibold text-theme-muted mb-2">Assigned rooms</div>
-                  {assignedRoomIds.length === 0 ? (
-                    <div>—</div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="text-theme-muted">
-                          <tr className="border-b border-white/5">
-                            <th className="text-left py-2 pr-2 font-semibold">Room</th>
-                            <th className="text-right py-2 pl-2 font-semibold">Action</th>
+                  <div className="font-semibold text-theme-muted mb-2">Assigned rooms ({detail.roomIds.length} / {maxRoomAssignments})</div>
+                  <div className="overflow-hidden rounded-xl border border-white/5">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-theme-base/40 text-theme-muted">
+                          <th className="py-2 px-3 font-bold">Room</th>
+                          <th className="py-2 px-3 font-bold">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assignedRoomIds.length === 0 ? (
+                          <tr>
+                            <td className="py-3 px-3 text-theme-muted" colSpan={2}>
+                              Not assigned to any rooms.
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {assignedRoomIds.map((rid) => (
-                            <tr key={rid} className="border-b border-white/5">
-                              <td className="py-2 pr-2 text-theme-text whitespace-nowrap">
-                                {getRoomName(rid) ?? rid}
+                        ) : (
+                          assignedRoomIds.map((roomId) => (
+                            <tr key={roomId} className="border-t border-white/5">
+                              <td className="py-2 px-3 text-white">
+                                {getRoomName(roomId)}
+                                <div className="text-[10px] text-theme-muted">{roomId}</div>
                               </td>
-                              <td className="py-2 pl-2 text-right whitespace-nowrap">
+                              <td className="py-2 px-3">
                                 <button
                                   type="button"
-                                  onClick={() => handleUnassign(rid)}
                                   disabled={!!unassigningRoomId}
-                                  className="px-3 py-1 rounded-lg bg-theme-base/40 border border-white/10 text-white hover:bg-theme-base/60 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Unassign this ant from the room"
+                                  onClick={() => handleUnassign(roomId)}
+                                  className="px-3 py-1 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-50"
                                 >
-                                  {unassigningRoomId === rid ? 'Removing…' : 'Remove'}
+                                  {unassigningRoomId === roomId ? 'Removing…' : 'Unassign'}
                                 </button>
                               </td>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <div className="text-[11px] text-theme-muted mt-2">
-                        {Math.min(detail.roomIds.length, MAX_ROOM_ASSIGNMENTS)}/{MAX_ROOM_ASSIGNMENTS} assignments
-                      </div>
-                    </div>
-                  )}
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                {mode === 'edit' && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="px-4 py-2 rounded-xl text-red-200 hover:bg-red-500/10 transition-colors font-medium text-sm"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || !canSave}
+                  className="px-6 py-2 rounded-xl bg-linear-to-r from-theme-primary to-theme-secondary text-white font-bold text-sm shadow-lg shadow-theme-primary/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? 'Saving…' : mode === 'create' ? 'Create' : 'Save'}
+                </button>
+              </div>
             </>
           )}
         </div>
-
-        <div className="p-4 border-t border-white/5 bg-theme-base/30 flex items-center justify-between gap-3">
-          <div>
-            {mode === 'edit' && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting || saving}
-                className="px-4 py-2 rounded-xl bg-theme-base/40 border border-white/10 text-white hover:bg-theme-base/60 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {deleting ? 'Deleting…' : 'Delete'}
-              </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !canSave}
-            className="px-6 py-2 rounded-xl bg-linear-to-r from-theme-primary to-theme-secondary text-white font-bold shadow-lg shadow-theme-primary/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {mode === 'create' ? (saving ? 'Creating...' : 'Create Ant') : (saving ? 'Updating...' : 'Update Ant')}
-          </button>
-        </div>
       </div>
 
-      {mode === 'edit' && antId && (
-        <>
-          <AssignAntToRoomModal
-            isOpen={showAssign}
-            antId={antId}
-            currentRoomIds={detail?.roomIds ?? []}
-            onClose={() => setShowAssign(false)}
-            onAssigned={async () => {
-              await refreshDetail();
-              onSaved();
-            }}
-          />
-        </>
+      {mode === 'edit' && antId && detail && (
+        <AssignAntToRoomModal
+          isOpen={showAssign}
+          antId={antId}
+          currentRoomIds={detail.roomIds}
+          onClose={() => setShowAssign(false)}
+          onAssigned={async () => {
+            await refreshDetail();
+            onSaved();
+          }}
+        />
       )}
     </div>
   );

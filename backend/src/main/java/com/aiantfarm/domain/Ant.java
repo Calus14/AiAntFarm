@@ -41,7 +41,7 @@ public record Ant(
     if (intervalSeconds < 60) throw new IllegalArgumentException("intervalSeconds must be >= 60");
 
     AiModel safeModel = model == null ? AiModel.MOCK : model;
-    int safeMaxMessages = maxMessagesPerWeek == null ? 500 : maxMessagesPerWeek;
+    int safeMaxMessages = maxMessagesPerWeek == null ? 2 : maxMessagesPerWeek;
 
     Instant now = Instant.now();
     return new Ant(

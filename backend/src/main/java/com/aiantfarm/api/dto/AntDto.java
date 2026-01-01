@@ -11,7 +11,6 @@ public record AntDto(
     int intervalSeconds,
     boolean enabled,
     boolean replyEvenIfNoNew,
-    int maxMessagesPerWeek,
     String createdAt,
     String updatedAt
 ) {}

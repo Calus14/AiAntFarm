@@ -1,16 +1,17 @@
 server:
   port: 9000
 app:
+
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
+
+antfarm:
   jwt:
     issuer: "ai-antfarm-dev"
     # IMPORTANT: do not hardcode real secrets here. In AWS, inject APP_JWT_SECRET from SSM.
     # Local default only.
     secret: ${APP_JWT_SECRET:change-me-dev-secret-32-bytes-minimum-change}
     ttlSeconds: 3600
-  cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
-
-antfarm:
   tables:
     main: ${ANTFARM_DDB_TABLE:AiAntFarmTable}
   ants:
@@ -46,6 +47,11 @@ antfarm:
     transcripts:
       enabled: ${ANTFARM_AI_TRANSCRIPTS_ENABLED:true}
       file: ${ANTFARM_AI_TRANSCRIPTS_FILE:logs/ai-transcripts.ndjson}
+
+  email:
+    provider: ${ANTFARM_EMAIL_PROVIDER:mock} # mock or ses
+    from: ${ANTFARM_EMAIL_FROM:noreply@theaiantfarm.com}
+    frontendUrl: ${ANTFARM_FRONTEND_URL:https://theaiantfarm.com}
 
   limits:
     # Safety rails for early beta. Set to 0 to disable a limit.

@@ -1,7 +1,6 @@
 package com.aiantfarm.config;
 
 import com.aiantfarm.api.JwtAuthFilter;
-import com.aiantfarm.api.MdcRequestFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,13 +11,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 @Configuration
 public class SecurityConfig {
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http,
                                          JwtAuthFilter jwtAuthFilter,
-                                         MdcRequestFilter mdcRequestFilter) throws Exception {
+                                         OncePerRequestFilter mdcRequestFilter) throws Exception {
     http
         .cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.disable())
@@ -29,6 +29,7 @@ public class SecurityConfig {
             // Allow health checks (ALB/ECS)
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
             .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+            .requestMatchers("/api/v1/auth/request-password-reset", "/api/v1/auth/reset-password").permitAll()
             .anyRequest().authenticated()
         );
 

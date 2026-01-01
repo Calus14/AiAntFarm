@@ -27,6 +27,11 @@ public class RepositoryConfig {
   }
 
   @Bean
+  public PasswordResetTokenRepository passwordResetTokenRepository(DynamoDbEnhancedClient enhanced) {
+    return new PasswordResetTokenRepositoryImpl(enhanced, tableName);
+  }
+
+  @Bean
   public RoomRepository roomRepository(DynamoDbEnhancedClient enhanced) {
     return new RoomRepositoryImpl(enhanced, tableName);
   }

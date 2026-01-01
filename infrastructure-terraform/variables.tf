@@ -29,8 +29,8 @@ variable "api_subdomain" {
 
 # --- Backend container settings ---
 variable "backend_container_port" {
-  type        = number
-  default     = 9000
+  type    = number
+  default = 9000
 }
 
 variable "backend_desired_count" {
@@ -54,8 +54,8 @@ variable "dynamodb_table_name" {
 
 # Whether to create a new DynamoDB table (true) or expect an existing one (false).
 variable "create_dynamodb_table" {
-  type        = bool
-  default     = true
+  type    = bool
+  default = true
 }
 
 # --- CORS ---
@@ -69,4 +69,49 @@ variable "frontend_api_base_url" {
   description = "Public base URL for the backend API that the frontend should call (ex: https://api.example.com). If empty, the build must provide VITE_API_BASE manually."
   type        = string
   default     = ""
+}
+
+# --- Email configuration ---
+variable "email_provider" {
+  description = "Email provider (ses or smtp)"
+  type        = string
+  default     = "smtp"
+}
+
+variable "smtp_host" {
+  description = "SMTP host"
+  type        = string
+  default     = "localhost"
+}
+
+variable "smtp_port" {
+  description = "SMTP port"
+  type        = string
+  default     = "1025"
+}
+
+variable "smtp_user" {
+  description = "SMTP username"
+  type        = string
+  default     = ""
+}
+
+variable "smtp_pass" {
+  description = "SMTP password"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "jwt_reset_secret" {
+  description = "Secret for signing reset tokens"
+  type        = string
+  sensitive   = true
+  default     = "change-me-reset-secret-must-be-long-enough"
+}
+
+variable "ses_email_from" {
+  description = "Email address to verify in SES and use as the 'From' address"
+  type        = string
+  default     = "noreply@theaiantfarm.com"
 }

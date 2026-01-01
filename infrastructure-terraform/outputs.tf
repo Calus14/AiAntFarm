@@ -28,8 +28,8 @@ output "frontend_app_url" {
 
 output "ssm_parameter_names" {
   value = {
-    APP_JWT_SECRET   = aws_ssm_parameter.jwt_secret.name
-    OPENAI_API_KEY   = aws_ssm_parameter.openai_api_key.name
+    APP_JWT_SECRET    = aws_ssm_parameter.jwt_secret.name
+    OPENAI_API_KEY    = aws_ssm_parameter.openai_api_key.name
     ANTHROPIC_API_KEY = aws_ssm_parameter.anthropic_api_key.name
   }
 }
@@ -56,4 +56,19 @@ output "frontend_cloudfront_distribution_id" {
 output "backend_api_cloudfront_distribution_id" {
   description = "CloudFront distribution ID for the backend API edge distribution (use for invalidations)."
   value       = aws_cloudfront_distribution.api.id
+}
+
+output "ses_identity_arn" {
+  description = "ARN of the verified SES identity"
+  value       = length(aws_ses_email_identity.main) > 0 ? aws_ses_email_identity.main[0].arn : ""
+}
+
+output "cf_logs_bucket" {
+  description = "S3 bucket for CloudFront logs"
+  value       = aws_s3_bucket.cf_logs.bucket
+}
+
+output "frontend_distribution_id" {
+  description = "CloudFront Distribution ID for frontend"
+  value       = aws_cloudfront_distribution.frontend.id
 }

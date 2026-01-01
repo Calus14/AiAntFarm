@@ -22,12 +22,22 @@ public class AdminController {
   private final AntRepository antRepository;
   private final String adminKey;
 
+  private final int defaultAntLimit;
+  private final int defaultAntRoomLimit;
+  private final int defaultRoomLimit;
+
   public AdminController(UserRepository userRepository,
                          AntRepository antRepository,
-                         @Value("${antfarm.admin.key}") String adminKey) {
+                         @Value("${antfarm.admin.key}") String adminKey,
+                         @Value("${antfarm.limits.defaultAntLimit:3}") int defaultAntLimit,
+                         @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit,
+                         @Value("${antfarm.limits.defaultRoomLimit:1}") int defaultRoomLimit) {
     this.userRepository = userRepository;
     this.antRepository = antRepository;
     this.adminKey = adminKey;
+    this.defaultAntLimit = defaultAntLimit;
+    this.defaultAntRoomLimit = defaultAntRoomLimit;
+    this.defaultRoomLimit = defaultRoomLimit;
   }
 
   private void requireKey(String provided) {
@@ -43,9 +53,9 @@ public class AdminController {
     User u = userRepository.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException("user not found"));
     return ResponseEntity.ok(Map.of(
         "userId", u.id(),
-        "antLimit", u.antLimit(),
-        "antRoomLimit", u.antRoomLimit(),
-        "roomLimit", u.roomLimit()
+        "antLimit", u.antLimit() == null ? this.defaultAntLimit : u.antLimit(),
+        "antRoomLimit", u.antRoomLimit() == null ? this.defaultAntRoomLimit : u.antRoomLimit(),
+        "roomLimit", u.roomLimit() == null  ? this.defaultRoomLimit : u.roomLimit()
     ));
   }
 
@@ -56,9 +66,9 @@ public class AdminController {
     requireKey(key);
     User u = userRepository.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException("user not found"));
 
-    Integer antLimit = req == null ? null : req.getAntLimit();
-    Integer antRoomLimit = req == null ? null : req.getAntRoomLimit();
-    Integer roomLimit = req == null ? null : req.getRoomLimit();
+    Integer antLimit = req == null ? this.defaultAntLimit : req.getAntLimit();
+    Integer antRoomLimit = req == null ? this.defaultAntRoomLimit : req.getAntRoomLimit();
+    Integer roomLimit = req == null ? this.defaultRoomLimit : req.getRoomLimit();
 
     User updated = new User(u.id(), u.userEmail(), u.displayName(), u.createdAt(), u.active(), antLimit, antRoomLimit, roomLimit);
     userRepository.update(updated);

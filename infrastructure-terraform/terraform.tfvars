@@ -11,7 +11,7 @@ create_dynamodb_table = false
 dynamodb_table_name   = "AiAntFarmTable"
 
 # Backend image will be set after you push to ECR
-backend_image = "802539608101.dkr.ecr.us-east-2.amazonaws.com/ai-antfarm-dev-backend:v1767297787"
+backend_image = "802539608101.dkr.ecr.us-east-2.amazonaws.com/ai-antfarm-dev-backend:v1767306598"
 
 # CORS
 cors_allowed_origins = [

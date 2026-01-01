@@ -32,15 +32,25 @@ data "aws_availability_zones" "available" {
 locals {
   name_prefix = "${var.project}-${var.env}"
 
-  dynamodb_table_name = var.dynamodb_table_name != "" ? var.dynamodb_table_name : local.name_prefix
-
   api_fqdn = (var.domain_name != "" ? "${var.api_subdomain}.${var.domain_name}" : "")
   app_fqdn = (var.domain_name != "" ? "${var.app_subdomain}.${var.domain_name}" : "")
 
-  # ECS env var expects comma-separated list
   cors_allowed_origins_csv = join(",", var.cors_allowed_origins)
 
   enable_custom_domain = (var.domain_name != "" && var.route53_zone_id != "")
+
+  frontend_domains = local.enable_custom_domain ? [
+    var.domain_name,
+    "www.${var.domain_name}",
+  ] : []
+
+  common_tags = {
+    Project     = var.project
+    Environment = var.env
+    ManagedBy   = "terraform"
+  }
+
+  dynamodb_table_name = "AiAntFarmTable"
 }
 
 # -----------------------------
@@ -182,6 +192,49 @@ resource "aws_ssm_parameter" "anthropic_api_key" {
   }
 }
 
+resource "aws_ssm_parameter" "jwt_reset_secret" {
+  name        = "/${local.name_prefix}/JWT_RESET_SECRET"
+  description = "Secret for signing password reset tokens"
+  type        = "SecureString"
+  value       = var.jwt_reset_secret
+  tags        = local.common_tags
+}
+
+resource "aws_ssm_parameter" "email_provider" {
+  name  = "/${local.name_prefix}/EMAIL_PROVIDER"
+  type  = "String"
+  value = var.email_provider
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "smtp_host" {
+  name  = "/${local.name_prefix}/EMAIL_SMTP_HOST"
+  type  = "String"
+  value = var.smtp_host
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "smtp_port" {
+  name  = "/${local.name_prefix}/EMAIL_SMTP_PORT"
+  type  = "String"
+  value = var.smtp_port
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "smtp_user" {
+  name  = "/${local.name_prefix}/EMAIL_SMTP_USER"
+  type  = "SecureString"
+  value = var.smtp_user != "" ? var.smtp_user : "placeholder"
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "smtp_pass" {
+  name  = "/${local.name_prefix}/EMAIL_SMTP_PASS"
+  type  = "SecureString"
+  value = var.smtp_pass != "" ? var.smtp_pass : "placeholder"
+  tags  = local.common_tags
+}
+
 # -----------------------------
 # DynamoDB
 # -----------------------------
@@ -297,6 +350,14 @@ resource "aws_dynamodb_table" "main" {
 }
 
 # -----------------------------
+# SES (Email)
+# -----------------------------
+resource "aws_ses_email_identity" "main" {
+  count = var.email_provider == "ses" ? 1 : 0
+  email = var.ses_email_from
+}
+
+# -----------------------------
 # IAM (ECS task roles)
 # -----------------------------
 resource "aws_iam_role" "ecs_task_execution" {
@@ -305,9 +366,9 @@ resource "aws_iam_role" "ecs_task_execution" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = { Service = "ecs-tasks.amazonaws.com" }
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -335,8 +396,8 @@ resource "aws_iam_role_policy" "ecs_exec_ssm" {
         ]
       },
       {
-        Effect = "Allow"
-        Action = ["kms:Decrypt"]
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
         Resource = "*"
       }
     ]
@@ -349,9 +410,9 @@ resource "aws_iam_role" "ecs_task" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = { Service = "ecs-tasks.amazonaws.com" }
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -388,10 +449,16 @@ resource "aws_iam_policy" "ecs_task_policy" {
           aws_ssm_parameter.anthropic_api_key.arn
         ]
       },
+      # SES Sending
+      {
+        Effect   = "Allow"
+        Action   = ["ses:SendEmail", "ses:SendRawEmail"]
+        Resource = "*"
+      },
       # KMS decrypt for SecureString (AWS-managed SSM key)
       {
-        Effect = "Allow"
-        Action = ["kms:Decrypt"]
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
         Resource = "*"
       }
     ]
@@ -622,60 +689,49 @@ resource "aws_lb_target_group" "api" {
   deregistration_delay = 10
 }
 
-# For now, we always create a regional ACM cert for the ALB using DNS validation
-# if and only if you provided domain_name + route53_zone_id.
-resource "aws_acm_certificate" "api" {
-  count             = (var.domain_name != "" && var.route53_zone_id != "") ? 1 : 0
+resource "aws_acm_certificate" "api_alb" {
+  count = local.enable_custom_domain ? 1 : 0
+
   domain_name       = local.api_fqdn
   validation_method = "DNS"
 }
 
-resource "aws_route53_record" "api_cert_validation" {
-  count   = (var.domain_name != "" && var.route53_zone_id != "") ? length(aws_acm_certificate.api[0].domain_validation_options) : 0
-  zone_id = var.route53_zone_id
 
-  name    = aws_acm_certificate.api[0].domain_validation_options[count.index].resource_record_name
-  type    = aws_acm_certificate.api[0].domain_validation_options[count.index].resource_record_type
-  records = [aws_acm_certificate.api[0].domain_validation_options[count.index].resource_record_value]
+resource "aws_route53_record" "api_cert_validation" {
+  allow_overwrite = true
+  for_each = local.enable_custom_domain ? {
+    for dvo in aws_acm_certificate.api_alb[0].domain_validation_options :
+    dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  } : {}
+
+  zone_id = var.route53_zone_id
+  name    = each.value.name
+  type    = each.value.type
   ttl     = 60
+  records = [each.value.record]
 }
 
 resource "aws_acm_certificate_validation" "api" {
-  count           = (var.domain_name != "" && var.route53_zone_id != "") ? 1 : 0
-  certificate_arn = aws_acm_certificate.api[0].arn
-  validation_record_fqdns = aws_route53_record.api_cert_validation[*].fqdn
+  count                   = local.enable_custom_domain ? 1 : 0
+  certificate_arn         = aws_acm_certificate.api_alb[0].arn
+  validation_record_fqdns = [for r in aws_route53_record.api_cert_validation : r.fqdn]
 }
 
 resource "aws_lb_listener" "http_forward" {
-  count             = local.enable_custom_domain ? 0 : 1
   load_balancer_arn = aws_lb.api.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type = "forward"
-
     forward {
       target_group {
         arn = aws_lb_target_group.api.arn
       }
-    }
-  }
-}
-
-resource "aws_lb_listener" "http_redirect" {
-  count             = local.enable_custom_domain ? 1 : 0
-  load_balancer_arn = aws_lb.api.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
     }
   }
 }
@@ -830,7 +886,7 @@ resource "aws_ecs_service" "backend" {
     container_port   = var.backend_container_port
   }
 
-  depends_on = [aws_lb_listener.http_forward, aws_lb_listener.http_redirect]
+  depends_on = [aws_lb_listener.http_forward]
 }
 
 # -----------------------------
@@ -882,29 +938,106 @@ resource "aws_s3_bucket_policy" "frontend" {
   depends_on = [aws_cloudfront_distribution.frontend]
 }
 
-# CloudFront cert (optional) in us-east-1
-resource "aws_acm_certificate" "frontend" {
-  provider          = aws.use1
-  count             = (var.domain_name != "" && var.route53_zone_id != "") ? 1 : 0
-  domain_name       = local.app_fqdn
-  validation_method = "DNS"
+# -----------------------------
+# CloudFront Logs Bucket
+# -----------------------------
+resource "aws_s3_bucket" "cf_logs" {
+  bucket        = "${local.name_prefix}-cf-logs-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
+
+  tags = {
+    Name = "${local.name_prefix}-cf-logs"
+  }
 }
 
-resource "aws_route53_record" "frontend_cert_validation" {
-  count   = (var.domain_name != "" && var.route53_zone_id != "") ? length(aws_acm_certificate.frontend[0].domain_validation_options) : 0
-  zone_id = var.route53_zone_id
+resource "aws_s3_bucket_ownership_controls" "cf_logs" {
+  bucket = aws_s3_bucket.cf_logs.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
 
-  name    = aws_acm_certificate.frontend[0].domain_validation_options[count.index].resource_record_name
-  type    = aws_acm_certificate.frontend[0].domain_validation_options[count.index].resource_record_type
-  records = [aws_acm_certificate.frontend[0].domain_validation_options[count.index].resource_record_value]
+resource "aws_s3_bucket_acl" "cf_logs" {
+  depends_on = [aws_s3_bucket_ownership_controls.cf_logs]
+  bucket     = aws_s3_bucket.cf_logs.id
+
+  access_control_policy {
+    owner {
+      id = data.aws_canonical_user_id.current.id
+    }
+
+    grant {
+      grantee {
+        type = "CanonicalUser"
+        id   = data.aws_canonical_user_id.current.id
+      }
+      permission = "FULL_CONTROL"
+    }
+
+    # CloudFront legacy logs writer (awslogsdelivery)
+    grant {
+      grantee {
+        type = "CanonicalUser"
+        id   = "c4c1ede66af53448b93c283ce9448c4ba468c9432aa01d700d3878632f77d2d0"
+      }
+      permission = "FULL_CONTROL"
+    }
+  }
+}
+
+data "aws_canonical_user_id" "current" {}
+
+resource "aws_s3_bucket_public_access_block" "cf_logs" {
+  bucket                  = aws_s3_bucket.cf_logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "cf_logs" {
+  bucket = aws_s3_bucket.cf_logs.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# CloudFront cert (optional) in us-east-1
+resource "aws_acm_certificate" "frontend_cf" {
+  provider = aws.use1
+  count    = local.enable_custom_domain ? 1 : 0
+
+  domain_name               = var.domain_name
+  subject_alternative_names = ["www.${var.domain_name}"]
+  validation_method         = "DNS"
+}
+
+
+resource "aws_route53_record" "frontend_cert_validation" {
+  allow_overwrite = true
+  for_each = local.enable_custom_domain ? {
+    for dvo in aws_acm_certificate.frontend_cf[0].domain_validation_options :
+    dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  } : {}
+
+  zone_id = var.route53_zone_id
+  name    = each.value.name
+  type    = each.value.type
   ttl     = 60
+  records = [each.value.record]
 }
 
 resource "aws_acm_certificate_validation" "frontend" {
-  provider        = aws.use1
-  count           = (var.domain_name != "" && var.route53_zone_id != "") ? 1 : 0
-  certificate_arn = aws_acm_certificate.frontend[0].arn
-  validation_record_fqdns = aws_route53_record.frontend_cert_validation[*].fqdn
+  provider                = aws.use1
+  count                   = local.enable_custom_domain ? 1 : 0
+  certificate_arn         = aws_acm_certificate.frontend_cf[0].arn
+  validation_record_fqdns = [for r in aws_route53_record.frontend_cert_validation : r.fqdn]
 }
 
 resource "aws_cloudfront_distribution" "frontend" {
@@ -912,7 +1045,13 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_root_object = "index.html"
 
   # Attach domain + cert only if provided.
-  aliases = (var.domain_name != "" && var.route53_zone_id != "") ? [local.app_fqdn] : []
+  aliases = local.frontend_domains
+
+  logging_config {
+    include_cookies = false
+    bucket          = aws_s3_bucket.cf_logs.bucket_domain_name
+    prefix          = "cloudfront/frontend/"
+  }
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -924,9 +1063,9 @@ resource "aws_cloudfront_distribution" "frontend" {
     target_origin_id       = "s3-frontend"
     viewer_protocol_policy = "redirect-to-https"
 
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD", "OPTIONS"]
-    compress         = true
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    cached_methods  = ["GET", "HEAD", "OPTIONS"]
+    compress        = true
 
     forwarded_values {
       query_string = false
@@ -958,19 +1097,26 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = (var.domain_name == "" || var.route53_zone_id == "")
-    acm_certificate_arn            = (var.domain_name != "" && var.route53_zone_id != "") ? aws_acm_certificate_validation.frontend[0].certificate_arn : null
-    ssl_support_method             = (var.domain_name != "" && var.route53_zone_id != "") ? "sni-only" : null
+    cloudfront_default_certificate = !local.enable_custom_domain
+    acm_certificate_arn            = local.enable_custom_domain ? aws_acm_certificate_validation.frontend[0].certificate_arn : null
+    ssl_support_method             = local.enable_custom_domain ? "sni-only" : null
     minimum_protocol_version       = "TLSv1.2_2021"
   }
 
-  depends_on = [aws_acm_certificate_validation.frontend]
+  depends_on = [
+    aws_acm_certificate_validation.frontend,
+    aws_s3_bucket_acl.cf_logs
+  ]
 }
 
-resource "aws_route53_record" "frontend" {
-  count   = (var.domain_name != "" && var.route53_zone_id != "") ? 1 : 0
+resource "aws_route53_record" "frontend_alias" {
+  for_each = local.enable_custom_domain ? {
+    apex = var.domain_name
+    www  = "www.${var.domain_name}"
+  } : {}
+
   zone_id = var.route53_zone_id
-  name    = var.app_subdomain
+  name    = each.value
   type    = "A"
 
   alias {
@@ -979,6 +1125,7 @@ resource "aws_route53_record" "frontend" {
     evaluate_target_health = false
   }
 }
+
 
 locals {
   # CloudFront function runs on viewer-response to inject headers.
@@ -1099,14 +1246,3 @@ resource "aws_cloudfront_distribution" "api" {
   }
 }
 
-# When the frontend_api_base_url variable is set, write it to S3 so the app can read it at runtime.
-resource "aws_s3_object" "frontend_runtime_config" {
-  bucket       = aws_s3_bucket.frontend.id
-  key          = "config.json"
-  content_type = "application/json"
-  cache_control = "no-store"
-
-  content = jsonencode({
-    apiBaseUrl = var.frontend_api_base_url != "" ? var.frontend_api_base_url : ""
-  })
-}

@@ -117,6 +117,10 @@
       <artifactId>spring-cloud-aws-starter-dynamodb</artifactId>
       <version>3.1.0</version>
     </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>ses</artifactId>
+    </dependency>
   </dependencies>
   <build>
     <plugins>

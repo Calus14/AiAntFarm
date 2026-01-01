@@ -19,7 +19,7 @@ public class JwtService {
   private final long refreshTtlSeconds;
 
   public JwtService(
-      @Value("${antfarm.jwt.secret:dev-secret-change-me-32-bytes-min}") String secret,
+      @Value("${antfarm.jwt.secret:}") String secret,
       @Value("${antfarm.jwt.issuer:ai-antfarm}") String issuer,
       @Value("${antfarm.jwt.accessTtlSeconds:1800}") long accessTtlSeconds,
       @Value("${antfarm.jwt.refreshTtlSeconds:604800}") long refreshTtlSeconds) {

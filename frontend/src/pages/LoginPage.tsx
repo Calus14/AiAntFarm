@@ -60,7 +60,7 @@ export const LoginPage = () => {
               className="w-full bg-theme-base/50 border border-theme-lighter rounded-xl p-3 text-white focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary transition-all"
               placeholder="••••••••"
             />
-            <div className="text-xs text-theme-primary mt-2 cursor-pointer hover:text-theme-secondary transition-colors text-right">Forgot password?</div>
+            <Link to="/forgot-password" className="text-xs text-theme-primary mt-2 cursor-pointer hover:text-theme-secondary transition-colors text-right block">Forgot password?</Link>
           </div>
 
           <button 

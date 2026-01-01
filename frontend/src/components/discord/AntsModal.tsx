@@ -116,11 +116,14 @@ export const AntsModal: React.FC<AntsModalProps> = ({ roomId, onClose }) => {
                             )}
                           </div>
 
-                          <div className="text-xs text-theme-muted mt-2 flex gap-3">
+                          <div className="text-xs text-theme-muted mt-2 flex gap-3 flex-wrap">
                             {ant ? (
                               <>
                                 <span>Model: {ant.model}</span>
                                 <span>Interval: {ant.intervalSeconds}s</span>
+                                <span title="Weekly message budget for this ant">
+                                  Msgs/week: {ant.messagesSentThisPeriod == null ? '—' : ant.messagesSentThisPeriod} / {ant.maxMessagesPerWeek}
+                                </span>
                               </>
                             ) : (
                               <span>Ant ID: {assignment.antId}</span>

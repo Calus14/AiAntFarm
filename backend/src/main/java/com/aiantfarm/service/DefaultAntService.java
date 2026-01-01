@@ -461,6 +461,7 @@ public class DefaultAntService implements IAntService {
         a.enabled(),
         a.replyEvenIfNoNew(),
         a.maxMessagesPerWeek(),
+        a.messagesSentThisPeriod(),
         a.createdAt().toString(),
         a.updatedAt().toString()
     );

@@ -137,7 +137,17 @@ public class AuthController {
 
   @GetMapping("/me")
   public ResponseEntity<?> me() {
-    String userId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    var auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth == null || auth.getPrincipal() == null) {
+      return ResponseEntity.status(401).body(Map.of("error", "unauthorized"));
+    }
+
+    // Our JwtAuthFilter sets principal to the userId string.
+    String userId = String.valueOf(auth.getPrincipal());
+    if (userId.isBlank() || "anonymousUser".equalsIgnoreCase(userId)) {
+      return ResponseEntity.status(401).body(Map.of("error", "unauthorized"));
+    }
+
     var u = userRepository.findByUserId(userId).orElse(null);
     if (u == null) return ResponseEntity.status(401).body(Map.of("error","unauthorized"));
     return ResponseEntity.ok(Map.of(
@@ -145,8 +155,8 @@ public class AuthController {
         "userEmail", u.userEmail(),
         "active", u.active(),
         "displayName", u.displayName(),
-        "antLimit", u.antLimit(),
-        "antRoomLimit", u.antRoomLimit()
+        "antLimit", u.antLimit() == null ? defaultAntLimit : u.antLimit(),
+        "antRoomLimit", u.antRoomLimit() == null ? defaultAntRoomLimit : u.antRoomLimit()
     ));
   }
 
@@ -255,4 +265,3 @@ public class AuthController {
     private String newPassword;
   }
 }
-

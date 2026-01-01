@@ -2,6 +2,11 @@ export interface ListResponse<T> {
   items: T[];
 }
 
+export interface UserSettingsDto {
+  antLimit: number;
+  antRoomLimit: number;
+}
+
 export interface RoomDto {
   roomId: string;
   name: string;
@@ -63,6 +68,12 @@ export interface AntDto {
   intervalSeconds: number;
   enabled: boolean;
   replyEvenIfNoNew: boolean;
+
+  // Weekly message quota settings & usage
+  maxMessagesPerWeek: number;
+  messagesSentThisPeriod?: number;
+  periodStartDate?: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +90,7 @@ export interface CreateAntRequest {
   intervalSeconds: number;
   enabled: boolean;
   replyEvenIfNoNew: boolean;
+  maxMessagesPerWeek: number;
 }
 
 export interface UpdateAntRequest extends CreateAntRequest {}

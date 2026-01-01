@@ -5,6 +5,7 @@ import com.aiantfarm.domain.Ant;
 import com.aiantfarm.repository.AntRepository;
 import com.aiantfarm.repository.entity.AntEntity;
 import com.aiantfarm.utils.DynamoKeys;
+import org.springframework.beans.factory.annotation.Value;
 import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
@@ -20,10 +21,15 @@ public class AntRepositoryImpl implements AntRepository {
   private final DynamoDbTable<AntEntity> table;
   private final DynamoDbIndex<AntEntity> antIndex;
 
+  private static final int defaultAntWeeklyMessages;
 
-  public AntRepositoryImpl(DynamoDbEnhancedClient enhancedClient, String tableName) {
+
+  public AntRepositoryImpl(DynamoDbEnhancedClient enhancedClient,
+                           String tableName,
+                           @Value("${antfarm.limits.defaultAntWeeklyMessages:500}") int defaultAntWeeklyMessages) {
     this.table = enhancedClient.table(tableName, TableSchema.fromBean(AntEntity.class));
     this.antIndex = table.index(GSI_ANT_ID);
+    this.defaultAntWeeklyMessages = defaultAntWeeklyMessages;
   }
 
   @Override
@@ -146,7 +152,7 @@ public class AntRepositoryImpl implements AntRepository {
         e.getIntervalSeconds() != null ? e.getIntervalSeconds() : 60,
         e.getEnabled() != null && e.getEnabled(),
         e.getReplyEvenIfNoNew() != null && e.getReplyEvenIfNoNew(),
-        e.getMaxMessagesPerWeek() != null ? e.getMaxMessagesPerWeek() : 500,
+        e.getMaxMessagesPerWeek() != null ? e.getMaxMessagesPerWeek() : defaultAntWeeklyMessages,
         e.getMessagesSentThisPeriod() != null ? e.getMessagesSentThisPeriod() : 0,
         periodStart,
         createdAt,

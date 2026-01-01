@@ -28,6 +28,8 @@ public class UserRepositoryImpl implements UserRepository {
         e.setDisplayName(u.displayName());
         e.setActive(u.active());
         e.setCreatedAt(u.createdAt());
+        e.setAntLimit(u.antLimit());
+        e.setAntRoomLimit(u.antRoomLimit());
         return e;
     }
 
@@ -42,7 +44,9 @@ public class UserRepositoryImpl implements UserRepository {
                 e.getUserEmail(),
                 e.getDisplayName(),
                 e.getCreatedAt() != null ? e.getCreatedAt() : Instant.EPOCH,
-                e.isActive()
+                e.isActive(),
+                e.getAntLimit(),
+                e.getAntRoomLimit()
         );
     }
 

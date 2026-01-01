@@ -23,6 +23,7 @@ public class AntRoomAssignmentEntity {
   private String updatedAt;
   private String lastSeenMessageId;
   private String lastRunAt;
+  private Boolean limitReachedNotificationSent;
 
   // RoomAntRole assignment fields
   private String roleId;

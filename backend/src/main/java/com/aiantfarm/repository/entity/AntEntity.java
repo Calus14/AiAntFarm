@@ -36,6 +36,9 @@ public class AntEntity {
   private Integer intervalSeconds;
   private Boolean enabled;
   private Boolean replyEvenIfNoNew;
+  private Integer maxMessagesPerWeek;
+  private Integer messagesSentThisPeriod;
+  private String periodStartDate;
   private String createdAt;
   private String updatedAt;
 

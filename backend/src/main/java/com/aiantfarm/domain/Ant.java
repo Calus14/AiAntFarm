@@ -18,6 +18,9 @@ public record Ant(
     int intervalSeconds,
     boolean enabled,
     boolean replyEvenIfNoNew,
+    int maxMessagesPerWeek,
+    int messagesSentThisPeriod,
+    Instant periodStartDate,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -29,7 +32,8 @@ public record Ant(
       String personalityPrompt,
       int intervalSeconds,
       boolean enabled,
-      boolean replyEvenIfNoNew
+      boolean replyEvenIfNoNew,
+      Integer maxMessagesPerWeek
   ) {
     Objects.requireNonNull(ownerUserId, "ownerUserId");
     if (ownerUserId.isBlank()) throw new IllegalArgumentException("ownerUserId required");
@@ -37,6 +41,7 @@ public record Ant(
     if (intervalSeconds < 60) throw new IllegalArgumentException("intervalSeconds must be >= 60");
 
     AiModel safeModel = model == null ? AiModel.MOCK : model;
+    int safeMaxMessages = maxMessagesPerWeek == null ? 500 : maxMessagesPerWeek;
 
     Instant now = Instant.now();
     return new Ant(
@@ -48,6 +53,9 @@ public record Ant(
         intervalSeconds,
         enabled,
         replyEvenIfNoNew,
+        safeMaxMessages,
+        0,
+        now,
         now,
         now
     );
@@ -64,7 +72,7 @@ public record Ant(
       boolean enabled,
       boolean replyEvenIfNoNew
   ) {
-    return create(ownerUserId, name, AiModel.MOCK, personalityPrompt, intervalSeconds, enabled, replyEvenIfNoNew);
+    return create(ownerUserId, name, AiModel.MOCK, personalityPrompt, intervalSeconds, enabled, replyEvenIfNoNew, 500);
   }
 
   public Ant withUpdated(
@@ -73,7 +81,8 @@ public record Ant(
       String personalityPrompt,
       Integer intervalSeconds,
       Boolean enabled,
-      Boolean replyEvenIfNoNew
+      Boolean replyEvenIfNoNew,
+      Integer maxMessagesPerWeek
   ) {
     Instant now = Instant.now();
 
@@ -89,6 +98,9 @@ public record Ant(
         nextInterval,
         enabled == null ? this.enabled : enabled,
         replyEvenIfNoNew == null ? this.replyEvenIfNoNew : replyEvenIfNoNew,
+        maxMessagesPerWeek == null ? this.maxMessagesPerWeek : maxMessagesPerWeek,
+        this.messagesSentThisPeriod,
+        this.periodStartDate,
         this.createdAt,
         now
     );
@@ -98,6 +110,42 @@ public record Ant(
    * Back-compat overload for existing callers.
    */
   public Ant withUpdated(String name, String personalityPrompt, Integer intervalSeconds, Boolean enabled, Boolean replyEvenIfNoNew) {
-    return withUpdated(name, null, personalityPrompt, intervalSeconds, enabled, replyEvenIfNoNew);
+    return withUpdated(name, null, personalityPrompt, intervalSeconds, enabled, replyEvenIfNoNew, null);
+  }
+
+  public Ant withUsageIncremented() {
+      return new Ant(
+          this.id,
+          this.ownerUserId,
+          this.name,
+          this.model,
+          this.personalityPrompt,
+          this.intervalSeconds,
+          this.enabled,
+          this.replyEvenIfNoNew,
+          this.maxMessagesPerWeek,
+          this.messagesSentThisPeriod + 1,
+          this.periodStartDate,
+          this.createdAt,
+          Instant.now()
+      );
+  }
+
+  public Ant withUsageReset(Instant newPeriodStart) {
+      return new Ant(
+          this.id,
+          this.ownerUserId,
+          this.name,
+          this.model,
+          this.personalityPrompt,
+          this.intervalSeconds,
+          this.enabled,
+          this.replyEvenIfNoNew,
+          this.maxMessagesPerWeek,
+          0,
+          newPeriodStart,
+          this.createdAt,
+          Instant.now()
+      );
   }
 }

@@ -17,7 +17,6 @@ import com.aiantfarm.service.email.EmailService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +43,8 @@ public class AuthController {
   private final EmailService emailService;
 
   private final int maxUsers;
+  private final int defaultAntLimit;
+  private final int defaultAntRoomLimit;
 
   // Simple in-memory rate limiter: email -> lastRequestTime
   private final Map<String, Instant> rateLimitMap = new ConcurrentHashMap<>();
@@ -55,7 +56,9 @@ public class AuthController {
                         JwtService jwt,
                         OneTimeTokenService ottService,
                         EmailService emailService,
-                        @Value("${antfarm.limits.maxUsers:5}") int maxUsers) {
+                        @Value("${antfarm.limits.maxUsers:5}") int maxUsers,
+                        @Value("${antfarm.limits.defaultAntLimit:3}") int defaultAntLimit,
+                        @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit) {
     this.userRepository = userRepository;
     this.authRepository = authRepository;
     this.tokenRepository = tokenRepository;
@@ -64,6 +67,8 @@ public class AuthController {
     this.ottService = ottService;
     this.emailService = emailService;
     this.maxUsers = maxUsers;
+    this.defaultAntLimit = defaultAntLimit;
+    this.defaultAntRoomLimit = defaultAntRoomLimit;
   }
 
   @PostMapping("/register")
@@ -83,7 +88,11 @@ public class AuthController {
       throw new IllegalArgumentException("Email already taken");
     }
 
-    User newUser = User.create(email, req.getDisplayName());
+    // Persist per-user limits at signup so UI can display them and future upgrades can edit them.
+    User base = User.create(email, req.getDisplayName());
+    User newUser = new User(base.id(), base.userEmail(), base.displayName(), base.createdAt(), base.active(),
+        defaultAntLimit, defaultAntRoomLimit);
+
     userRepository.create(newUser);
 
     String hash = encoder.encode(req.getPassword());
@@ -135,7 +144,9 @@ public class AuthController {
         "id", u.id(),
         "userEmail", u.userEmail(),
         "active", u.active(),
-        "displayName", u.displayName()
+        "displayName", u.displayName(),
+        "antLimit", u.antLimit(),
+        "antRoomLimit", u.antRoomLimit()
     ));
   }
 
@@ -244,3 +255,4 @@ public class AuthController {
     private String newPassword;
   }
 }
+

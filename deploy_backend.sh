@@ -44,9 +44,12 @@ docker push "$FULL_IMAGE_URI"
 echo "[5/5] Updating ECS service via Terraform..."
 cd infrastructure-terraform
 
-# We use -var to override the variable without modifying terraform.tfvars permanently
+# Update terraform.tfvars so subsequent manual applies don't revert to an old image
+# Use | as delimiter because the URI contains /
+sed -i "s|backend_image = \".*\"|backend_image = \"$FULL_IMAGE_URI\"|" terraform.tfvars
+
 # -auto-approve skips the "yes" prompt
-terraform apply -var="backend_image=$FULL_IMAGE_URI" -auto-approve
+terraform apply -auto-approve
 
 echo "========================================"
 echo "   Backend Deployment Complete!"

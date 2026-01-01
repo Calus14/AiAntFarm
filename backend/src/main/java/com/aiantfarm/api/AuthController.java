@@ -42,9 +42,9 @@ public class AuthController {
   private final OneTimeTokenService ottService;
   private final EmailService emailService;
 
-  private final int maxUsers;
   private final int defaultAntLimit;
   private final int defaultAntRoomLimit;
+  private final int defaultRoomLimit;
 
   // Simple in-memory rate limiter: email -> lastRequestTime
   private final Map<String, Instant> rateLimitMap = new ConcurrentHashMap<>();
@@ -56,9 +56,9 @@ public class AuthController {
                         JwtService jwt,
                         OneTimeTokenService ottService,
                         EmailService emailService,
-                        @Value("${antfarm.limits.maxUsers:5}") int maxUsers,
                         @Value("${antfarm.limits.defaultAntLimit:3}") int defaultAntLimit,
-                        @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit) {
+                        @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit,
+                        @Value("${antfarm.limits.defaultRoomLimit:1}") int defaultRoomLimit) {
     this.userRepository = userRepository;
     this.authRepository = authRepository;
     this.tokenRepository = tokenRepository;
@@ -66,21 +66,13 @@ public class AuthController {
     this.jwt = jwt;
     this.ottService = ottService;
     this.emailService = emailService;
-    this.maxUsers = maxUsers;
     this.defaultAntLimit = defaultAntLimit;
     this.defaultAntRoomLimit = defaultAntRoomLimit;
+    this.defaultRoomLimit = defaultRoomLimit;
   }
 
   @PostMapping("/register")
   public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
-    if (maxUsers > 0) {
-      // MVP: fastest implementation is a scan-based count.
-      long existingUsers = userRepository.countUsers();
-      if (existingUsers >= maxUsers) {
-        throw new QuotaExceededException("Registration is temporarily limited (max users reached)");
-      }
-    }
-
     String email = req.getUserEmail().toLowerCase();
 
     var userOptional = authRepository.findByEmail(email);
@@ -91,7 +83,7 @@ public class AuthController {
     // Persist per-user limits at signup so UI can display them and future upgrades can edit them.
     User base = User.create(email, req.getDisplayName());
     User newUser = new User(base.id(), base.userEmail(), base.displayName(), base.createdAt(), base.active(),
-        defaultAntLimit, defaultAntRoomLimit);
+        defaultAntLimit, defaultAntRoomLimit, defaultRoomLimit);
 
     userRepository.create(newUser);
 
@@ -156,7 +148,8 @@ public class AuthController {
         "active", u.active(),
         "displayName", u.displayName(),
         "antLimit", u.antLimit() == null ? defaultAntLimit : u.antLimit(),
-        "antRoomLimit", u.antRoomLimit() == null ? defaultAntRoomLimit : u.antRoomLimit()
+        "antRoomLimit", u.antRoomLimit() == null ? defaultAntRoomLimit : u.antRoomLimit(),
+        "roomLimit", u.roomLimit() == null ? defaultRoomLimit : u.roomLimit()
     ));
   }
 

@@ -51,12 +51,12 @@ DO NOT DO ITS DONE
 4) Add per-ant field: "Maximum messages per room" (Item 2)
 - Description: Add a bounded integer (1–200, or 'infinite' later) to ant configuration: how many recent messages to include in the model prompt per room.
 - AC:
-  - Ant settings include a numeric `maxMessagesPerRoom` limited to 1..200
-  - Backend validates the value and enforces it during run (context window trimmed accordingly)
-  - UI shows the field when editing/creating an ant
+    - Ant settings include a numeric `maxMessagesPerRoom` limited to 1..200
+    - Backend validates the value and enforces it during run (context window trimmed accordingly)
+    - UI shows the field when editing/creating an ant
 - Notes:
-  - Validate in both frontend and backend
-  - Future: allow 'infinite' by using a sentinel value (null or 0) and document the cost implications
+    - Validate in both frontend and backend
+    - Future: allow 'infinite' by using a sentinel value (null or 0) and document the cost implications
 - Dependencies: Ant edit UI, ant run logic, scheduler
 - Effort: M
 

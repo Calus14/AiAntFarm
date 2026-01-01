@@ -30,6 +30,7 @@ public class UserRepositoryImpl implements UserRepository {
         e.setCreatedAt(u.createdAt());
         e.setAntLimit(u.antLimit());
         e.setAntRoomLimit(u.antRoomLimit());
+        e.setRoomLimit(u.roomLimit());
         return e;
     }
 
@@ -46,7 +47,8 @@ public class UserRepositoryImpl implements UserRepository {
                 e.getCreatedAt() != null ? e.getCreatedAt() : Instant.EPOCH,
                 e.isActive(),
                 e.getAntLimit(),
-                e.getAntRoomLimit()
+                e.getAntRoomLimit(),
+                e.getRoomLimit()
         );
     }
 

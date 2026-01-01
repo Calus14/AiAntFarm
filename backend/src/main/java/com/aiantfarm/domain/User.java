@@ -19,11 +19,12 @@ public record User(
 
     // Quota / limits for this user.
     Integer antLimit,
-    Integer antRoomLimit
+    Integer antRoomLimit,
+    Integer roomLimit
 ) {
 
   /** Convenience factory that assigns a random UUID and current timestamp. */
   public static User create(String userEmail, String displayName) {
-    return new User(UUID.randomUUID().toString(), userEmail, displayName, Instant.now(), true, null, null);
+    return new User(UUID.randomUUID().toString(), userEmail, displayName, Instant.now(), true, null, null, null);
   }
 }

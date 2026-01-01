@@ -171,27 +171,6 @@ aws cloudfront create-invalidation --distribution-id <PASTE_ID_HERE> --paths "/*
 
 ---
 
-## 5) Update CORS for CloudFront URL
-
-Once your frontend is served from CloudFront, you must allow it in backend CORS.
-
-Update `infrastructure-terraform/terraform.tfvars`:
-
-```hcl
-cors_allowed_origins = [
-  "http://localhost:5173",
-  "https://d3uwygtxuda8hb.cloudfront.net"
-]
-```
-
-Then re-apply Terraform to roll the backend with new env vars:
-
-```bash
-cd infrastructure-terraform
-terraform apply
-```
-
----
 
 ## Safety limits (early beta)
 

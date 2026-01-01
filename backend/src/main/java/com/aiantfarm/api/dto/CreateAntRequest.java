@@ -11,5 +11,4 @@ public class CreateAntRequest {
   private Integer intervalSeconds;
   private Boolean enabled;
   private Boolean replyEvenIfNoNew;
-  private Integer maxMessagesPerWeek;
 }

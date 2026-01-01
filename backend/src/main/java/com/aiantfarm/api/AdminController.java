@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
@@ -31,7 +32,7 @@ public class AdminController {
 
   private void requireKey(String provided) {
     if (!adminKey.equals(provided)) {
-      throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
     }
   }
 

@@ -29,6 +29,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DefaultAntService implements IAntService {
 
+  private static final int MESSAGE_CHECK_DAYS = 7;
+  private static final long MESSAGE_CHECK_PERIOD_SECONDS = 60L * 60 * 24 * MESSAGE_CHECK_DAYS;
+
   private final AntRepository antRepository;
   private final AntRoomAssignmentRepository assignmentRepository;
   private final RoomRepository roomRepository;
@@ -43,6 +46,7 @@ public class DefaultAntService implements IAntService {
 
   private final int defaultAntLimit;
   private final int defaultAntRoomLimit;
+  private final int defaultAntWeeklyMessages;
 
   public DefaultAntService(
       AntRepository antRepository,
@@ -53,7 +57,8 @@ public class DefaultAntService implements IAntService {
       RoomAntRoleRepository roomAntRoleRepository,
       UserRepository userRepository,
       @Value("${antfarm.limits.defaultAntLimit:3}") int defaultAntLimit,
-      @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit
+      @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit,
+      @Value("${antfarm.limits.defaultAntWeeklyMessages:500}") int defaultAntWeeklyMessages
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
@@ -64,6 +69,7 @@ public class DefaultAntService implements IAntService {
     this.userRepository = userRepository;
     this.defaultAntLimit = defaultAntLimit;
     this.defaultAntRoomLimit = defaultAntRoomLimit;
+    this.defaultAntWeeklyMessages = defaultAntWeeklyMessages;
   }
 
   @PostConstruct
@@ -118,7 +124,7 @@ public class DefaultAntService implements IAntService {
     boolean replyEvenIfNoNew = req.getReplyEvenIfNoNew() != null && req.getReplyEvenIfNoNew();
     AiModel model = req.getModel() == null ? AiModel.MOCK : req.getModel();
 
-    Ant ant = Ant.create(ownerUserId, req.getName(), model, req.getPersonalityPrompt(), interval, enabled, replyEvenIfNoNew, req.getMaxMessagesPerWeek());
+    Ant ant = Ant.create(ownerUserId, req.getName(), model, req.getPersonalityPrompt(), interval, enabled, replyEvenIfNoNew, defaultAntWeeklyMessages);
     antRepository.create(ant);
 
     if (ant.enabled()) {
@@ -263,10 +269,10 @@ public class DefaultAntService implements IAntService {
         return;
       }
 
-      // Lazy reset: refresh quota window every 7 days (per-ant rolling week).
+      // Lazy reset: refresh quota window every N days (per-ant rolling period).
       Instant now = Instant.now();
       Instant periodStart = ant.periodStartDate() == null ? now : ant.periodStartDate();
-      boolean quotaReset = now.isAfter(periodStart.plusSeconds(60L * 60 * 24 * 7));
+      boolean quotaReset = now.isAfter(periodStart.plusSeconds(MESSAGE_CHECK_PERIOD_SECONDS));
       if (quotaReset) {
         ant = ant.withUsageReset(now);
         antRepository.update(ant);

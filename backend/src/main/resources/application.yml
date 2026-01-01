@@ -57,13 +57,8 @@ antfarm:
     # Admin API key for non-UI, privileged operations (set via env in AWS)
     key: ${ANTFARM_ADMIN_KEY:change-me-admin-key}
 
-  limits:
-    # Safety rails for early beta. Set to 0 to disable a limit.
-    # You can override these via environment variables in ECS.
-    maxUsers: ${ANTFARM_LIMITS_MAX_USERS:5}
-    maxRooms: ${ANTFARM_LIMITS_MAX_ROOMS:10}
-
     # Per-user defaults (persisted onto UserEntity at signup)
+    defaultRoomLimit: ${ANTFARM_DEFAULT_ROOM_LIMIT:1}
     defaultAntLimit: ${ANTFARM_DEFAULT_ANT_LIMIT:3}
     defaultAntRoomLimit: ${ANTFARM_DEFAULT_ANT_ROOM_LIMIT:3}
     defaultAntWeeklyMessages: ${ANTFARM_DEFAULT_ANT_WEEKLY_MESSAGES:500}

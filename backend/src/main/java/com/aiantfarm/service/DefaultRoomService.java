@@ -4,6 +4,7 @@ import com.aiantfarm.api.dto.*;
 import com.aiantfarm.domain.AuthorType;
 import com.aiantfarm.domain.Message;
 import com.aiantfarm.domain.Room;
+import com.aiantfarm.domain.User;
 import com.aiantfarm.exception.QuotaExceededException;
 import com.aiantfarm.exception.ResourceNotFoundException;
 import com.aiantfarm.exception.RoomAlreadyExistsException;
@@ -12,6 +13,7 @@ import com.aiantfarm.repository.MessageRepository;
 import com.aiantfarm.repository.Page;
 import com.aiantfarm.repository.RoomAntRoleRepository;
 import com.aiantfarm.repository.RoomRepository;
+import com.aiantfarm.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -27,27 +29,34 @@ public class DefaultRoomService implements IRoomService {
   private final MessageRepository messageRepository;
   private final RoomAntRoleRepository roomAntRoleRepository;
   private final AntRoomAssignmentRepository antRoomAssignmentRepository;
+  private final UserRepository userRepository;
 
-  private final int maxRooms;
+  private final int defaultRoomLimit;
 
   public DefaultRoomService(RoomRepository roomRepository,
                             MessageRepository messageRepository,
                             RoomAntRoleRepository roomAntRoleRepository,
                             AntRoomAssignmentRepository antRoomAssignmentRepository,
-                            @Value("${antfarm.limits.maxRooms:10}") int maxRooms) {
+                            UserRepository userRepository,
+                            @Value("${antfarm.limits.defaultRoomLimit:1}") int defaultRoomLimit) {
     this.roomRepository = roomRepository;
     this.messageRepository = messageRepository;
     this.roomAntRoleRepository = roomAntRoleRepository;
     this.antRoomAssignmentRepository = antRoomAssignmentRepository;
-    this.maxRooms = maxRooms;
+    this.userRepository = userRepository;
+    this.defaultRoomLimit = defaultRoomLimit;
   }
 
   @Override
   public RoomDto createRoom(String userId, CreateRoomRequest req) {
-    if (maxRooms > 0) {
-      int existing = roomRepository.listAll(Math.min(maxRooms + 1, 1000), null).items().size();
-      if (existing >= maxRooms) {
-        throw new QuotaExceededException("Room creation is temporarily limited (max rooms reached)");
+
+    // Per-user room creation limit
+    User user = userRepository.findByUserId(userId).orElseThrow(() -> new SecurityException("forbidden"));
+    int roomLimit = user.roomLimit() != null ? user.roomLimit() : defaultRoomLimit;
+    if (roomLimit > 0) {
+      int existingForUser = roomRepository.listByUserCreatedId(userId, roomLimit + 1, null).items().size();
+      if (existingForUser >= roomLimit) {
+        throw new QuotaExceededException("Room creation limit reached (max " + roomLimit + " rooms)");
       }
     }
 
@@ -55,6 +64,7 @@ public class DefaultRoomService implements IRoomService {
       throw new IllegalArgumentException("name required");
     }
 
+    // Enforce globally-unique room names via GSI (no scan)
     var existingOpt = roomRepository.findByName(req.name());
     if (existingOpt != null && existingOpt.isPresent()) {
       throw new RoomAlreadyExistsException("room already exists");

@@ -18,6 +18,7 @@ public class UserEntity {
     private Instant createdAt;
     private Integer antLimit;
     private Integer antRoomLimit;
+    private Integer roomLimit;
 
     @DynamoDbPartitionKey
     public String getPk() { return pk; }

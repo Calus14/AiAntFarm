@@ -44,7 +44,8 @@ public class AdminController {
     return ResponseEntity.ok(Map.of(
         "userId", u.id(),
         "antLimit", u.antLimit(),
-        "antRoomLimit", u.antRoomLimit()
+        "antRoomLimit", u.antRoomLimit(),
+        "roomLimit", u.roomLimit()
     ));
   }
 
@@ -57,8 +58,9 @@ public class AdminController {
 
     Integer antLimit = req == null ? null : req.getAntLimit();
     Integer antRoomLimit = req == null ? null : req.getAntRoomLimit();
+    Integer roomLimit = req == null ? null : req.getRoomLimit();
 
-    User updated = new User(u.id(), u.userEmail(), u.displayName(), u.createdAt(), u.active(), antLimit, antRoomLimit);
+    User updated = new User(u.id(), u.userEmail(), u.displayName(), u.createdAt(), u.active(), antLimit, antRoomLimit, roomLimit);
     userRepository.update(updated);
 
     return ResponseEntity.ok(Map.of("message", "User limits updated"));
@@ -95,6 +97,7 @@ public class AdminController {
   public static class UpdateUserLimitsRequest {
     private Integer antLimit;
     private Integer antRoomLimit;
+    private Integer roomLimit;
   }
 
   @Data

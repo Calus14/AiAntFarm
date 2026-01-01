@@ -47,6 +47,7 @@ public class DefaultAntService implements IAntService {
   private final int defaultAntLimit;
   private final int defaultAntRoomLimit;
   private final int defaultAntWeeklyMessages;
+  private final boolean antsEnabled;
 
   public DefaultAntService(
       AntRepository antRepository,
@@ -58,7 +59,8 @@ public class DefaultAntService implements IAntService {
       UserRepository userRepository,
       @Value("${antfarm.limits.defaultAntLimit:3}") int defaultAntLimit,
       @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit,
-      @Value("${antfarm.limits.defaultAntWeeklyMessages:500}") int defaultAntWeeklyMessages
+      @Value("${antfarm.limits.defaultAntWeeklyMessages:500}") int defaultAntWeeklyMessages,
+      @Value("${antfarm.ants.enabled:true}") boolean antsEnabled
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
@@ -70,10 +72,15 @@ public class DefaultAntService implements IAntService {
     this.defaultAntLimit = defaultAntLimit;
     this.defaultAntRoomLimit = defaultAntRoomLimit;
     this.defaultAntWeeklyMessages = defaultAntWeeklyMessages;
+    this.antsEnabled = antsEnabled;
   }
 
   @PostConstruct
   void warmStartAntSchedules() {
+    if (!antsEnabled) {
+      log.info("Ant scheduling disabled (antfarm.ants.enabled=false)");
+      return;
+    }
     // !!! IMPORTANT SINGLE-POD WARNING (do not delete):
     // This is an in-memory scheduler bootstrap. On app restart we reschedule ants from Dynamo.
     // If you run multiple backend instances, EACH instance will reschedule ants and you will get
@@ -257,6 +264,9 @@ public class DefaultAntService implements IAntService {
   // --- scheduling ---
 
   private void ensureScheduledIfAssigned(Ant ant) {
+    if (!antsEnabled) {
+      return;
+    }
     antScheduler.scheduleOrReschedule(ant, () -> runAntTick(ant.id()));
   }
 

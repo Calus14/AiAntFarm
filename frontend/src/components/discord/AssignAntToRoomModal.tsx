@@ -117,7 +117,7 @@ export const AssignAntToRoomModal: React.FC<AssignAntToRoomModalProps> = ({
               >
                 {available.map((r) => (
                   <option key={r.roomId} value={r.roomId}>
-                    {r.name} ({r.roomId})
+                    {r.name}
                   </option>
                 ))}
               </select>

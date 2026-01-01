@@ -23,7 +23,7 @@ output "frontend_cloudfront_domain" {
 }
 
 output "frontend_app_url" {
-  value = (var.domain_name != "" && var.route53_zone_id != "") ? "https://${var.app_subdomain}.${var.domain_name}" : "https://${aws_cloudfront_distribution.frontend.domain_name}"
+  value = (var.domain_name != "" && var.route53_zone_id != "") ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
 
 output "ssm_parameter_names" {

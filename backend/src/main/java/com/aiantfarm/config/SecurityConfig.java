@@ -28,8 +28,8 @@ public class SecurityConfig {
             .requestMatchers("/error").permitAll()
             // Allow health checks (ALB/ECS)
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-            .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
-            .requestMatchers("/api/v1/auth/request-password-reset", "/api/v1/auth/reset-password").permitAll()
+            // Public auth endpoints - using wildcard to be safe against path variations
+            .requestMatchers("/api/v1/auth/**").permitAll()
             .anyRequest().authenticated()
         );
 

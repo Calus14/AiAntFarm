@@ -2,13 +2,10 @@
 
 This file lists and prioritizes the next work items we agreed on. Each item includes a minimal description, acceptance criteria (AC), notes/implementation hints, dependencies, and a rough effort estimate (S/M/L).
 
-Checklist
-- [x] Confirmed ordering with the user
-- [x] Capture each item with AC and notes
-- [ ] Triage into tickets (next step)
-
 Priority order (implemented first → last)
 
+## DONE
+DO NOT DO ITS DONE
 1) Domain + DNS → point domain to CloudFront API (Item 1)
 - Description: Acquire a domain and configure DNS so the public domain redirects/points to the app CloudFront distribution (example: map to `d3uwygtxuda8hb.cloudfront.net`). Ensure TLS (ACM) and Route53/registrar configuration as needed.
 - Acceptance Criteria (AC):
@@ -23,6 +20,7 @@ Priority order (implemented first → last)
 - Dependencies: Registrar access, Route53 zone (optional), Terraform (optional)
 - Effort: M
 
+## SORTA DONE - No Email Verification YET
 2) Implement proper authentication: Email registration + login + password recovery (Item 5)
 - Description: Replace dev/in-memory auth with a production-ready flow: registration, email verification (optional), password reset via email, secure login (JWT), and refresh tokens.
 - AC:

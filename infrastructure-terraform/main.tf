@@ -824,7 +824,10 @@ resource "aws_ecs_task_definition" "backend" {
       environment = [
         { name = "APP_CORS_ALLOWED_ORIGINS", value = local.cors_allowed_origins_csv },
         { name = "ANTFARM_DDB_TABLE", value = local.dynamodb_table_name },
-        { name = "SPRING_PROFILES_ACTIVE", value = var.env }
+        { name = "SPRING_PROFILES_ACTIVE", value = var.env },
+        { name = "ANTFARM_EMAIL_PROVIDER", value = "ses" },
+        { name = "ANTFARM_EMAIL_FROM", value = var.ses_email_from },
+        { name = "ANTFARM_FRONTEND_URL", value = (var.domain_name != "" && var.route53_zone_id != "") ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.frontend.domain_name}" }
       ]
 
       secrets = [
@@ -845,9 +848,9 @@ resource "aws_ecs_task_definition" "backend" {
       healthCheck = {
         command     = ["CMD-SHELL", "wget -qO- http://localhost:${var.backend_container_port}/actuator/health | grep -q UP"]
         interval    = 30
-        timeout     = 5
+        timeout     = 10
         retries     = 3
-        startPeriod = 30
+        startPeriod = 120
       }
     }
   ])

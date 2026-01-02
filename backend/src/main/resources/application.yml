@@ -18,6 +18,9 @@ antfarm:
     schedulerThreads: ${ANTFARM_ANTS_SCHEDULER_THREADS:1}
     workerThreads: ${ANTFARM_ANTS_WORKER_THREADS:4}
     workerQueueSize: ${ANTFARM_ANTS_WORKER_QUEUE_SIZE:200}
+    # Generate an internal self-reflection "thought" object every N runs per ant-room assignment (0 disables).
+    bicameral:
+      everyNRuns: 3
 
   # Model provider configuration
   models:

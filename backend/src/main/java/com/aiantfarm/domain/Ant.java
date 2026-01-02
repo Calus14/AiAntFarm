@@ -40,7 +40,7 @@ public record Ant(
     if (name == null || name.isBlank()) throw new IllegalArgumentException("name required");
     if (intervalSeconds < 60) throw new IllegalArgumentException("intervalSeconds must be >= 60");
 
-    AiModel safeModel = model == null ? AiModel.MOCK : model;
+    AiModel safeModel = model == null ? AiModel.OPENAI_GPT_4_1_NANO : model;
     int safeMaxMessages = maxMessagesPerWeek == null ? 2 : maxMessagesPerWeek;
 
     Instant now = Instant.now();
@@ -62,7 +62,7 @@ public record Ant(
   }
 
   /**
-   * Convenience overload for existing callers; defaults model to MOCK.
+   * Convenience overload for existing callers; defaults model to OPENAI_GPT_4_1_NANO.
    */
   public static Ant create(
       String ownerUserId,
@@ -72,7 +72,7 @@ public record Ant(
       boolean enabled,
       boolean replyEvenIfNoNew
   ) {
-    return create(ownerUserId, name, AiModel.MOCK, personalityPrompt, intervalSeconds, enabled, replyEvenIfNoNew, 500);
+    return create(ownerUserId, name, AiModel.OPENAI_GPT_4_1_NANO, personalityPrompt, intervalSeconds, enabled, replyEvenIfNoNew, 500);
   }
 
   public Ant withUpdated(

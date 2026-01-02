@@ -29,7 +29,12 @@ public record AntRoomAssignment(
 
     // Counter that we increment as new room messages accumulate.
     // When it crosses a threshold (e.g., >= windowSize) we regenerate roomSummary.
-    Integer summaryMsgCounter
+    Integer summaryMsgCounter,
+
+    // --- Bicameral self-reflection (internal-only; persisted for continuity) ---
+    String bicameralThoughtJson,
+    Instant bicameralThoughtAt,
+    Integer bicameralThoughtCounter
 ) {
 
   public static AntRoomAssignment create(String antId, String roomId) {
@@ -39,7 +44,8 @@ public record AntRoomAssignment(
     if (roomId.isBlank()) throw new IllegalArgumentException("roomId required");
 
     Instant now = Instant.now();
-    return new AntRoomAssignment(antId, roomId, now, now, null, null, false, null, null, null, 0);
+    return new AntRoomAssignment(antId, roomId, now, now, null, null, false, null, null, null, 0,
+        "", null, 0);
   }
 
   public AntRoomAssignment withLastSeen(String lastSeenMessageId, Instant lastRunAt) {
@@ -47,7 +53,8 @@ public record AntRoomAssignment(
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, lastSeenMessageId, lastRunAt,
         this.limitReachedNotificationSent,
         this.roleId, this.roleName,
-        this.roomSummary, this.summaryMsgCounter);
+        this.roomSummary, this.summaryMsgCounter,
+        this.bicameralThoughtJson, this.bicameralThoughtAt, this.bicameralThoughtCounter);
   }
 
   public AntRoomAssignment withRole(String roleId, String roleName) {
@@ -55,7 +62,8 @@ public record AntRoomAssignment(
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
         this.limitReachedNotificationSent,
         roleId, roleName,
-        this.roomSummary, this.summaryMsgCounter);
+        this.roomSummary, this.summaryMsgCounter,
+        this.bicameralThoughtJson, this.bicameralThoughtAt, this.bicameralThoughtCounter);
   }
 
   public AntRoomAssignment withLimitReachedNotificationSent(boolean sent) {
@@ -63,7 +71,8 @@ public record AntRoomAssignment(
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
         sent,
         this.roleId, this.roleName,
-        this.roomSummary, this.summaryMsgCounter);
+        this.roomSummary, this.summaryMsgCounter,
+        this.bicameralThoughtJson, this.bicameralThoughtAt, this.bicameralThoughtCounter);
   }
 
   public AntRoomAssignment incrementSummaryCounter(int delta) {
@@ -73,7 +82,8 @@ public record AntRoomAssignment(
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
         this.limitReachedNotificationSent,
         this.roleId, this.roleName,
-        this.roomSummary, next);
+        this.roomSummary, next,
+        this.bicameralThoughtJson, this.bicameralThoughtAt, this.bicameralThoughtCounter);
   }
 
   public AntRoomAssignment withSummary(String roomSummary, int resetCounterTo) {
@@ -81,6 +91,29 @@ public record AntRoomAssignment(
     return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
         this.limitReachedNotificationSent,
         this.roleId, this.roleName,
-        roomSummary, Math.max(0, resetCounterTo));
+        roomSummary, Math.max(0, resetCounterTo),
+        this.bicameralThoughtJson, this.bicameralThoughtAt, this.bicameralThoughtCounter);
+  }
+
+  public AntRoomAssignment incrementThoughtCounter(int delta) {
+    int current = this.bicameralThoughtCounter == null ? 0 : this.bicameralThoughtCounter;
+    int next = Math.max(0, current + Math.max(0, delta));
+    Instant now = Instant.now();
+    return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
+        this.limitReachedNotificationSent,
+        this.roleId, this.roleName,
+        this.roomSummary, this.summaryMsgCounter,
+        this.bicameralThoughtJson, this.bicameralThoughtAt, next);
+  }
+
+  public AntRoomAssignment withThought(String thoughtJson, Instant thoughtAt, int resetCounterTo) {
+    Instant now = Instant.now();
+    return new AntRoomAssignment(this.antId, this.roomId, this.createdAt, now, this.lastSeenMessageId, this.lastRunAt,
+        this.limitReachedNotificationSent,
+        this.roleId, this.roleName,
+        this.roomSummary, this.summaryMsgCounter,
+        thoughtJson == null ? "" : thoughtJson,
+        thoughtAt,
+        Math.max(0, resetCounterTo));
   }
 }

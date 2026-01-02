@@ -48,6 +48,7 @@ public class DefaultAntService implements IAntService {
   private final int defaultAntRoomLimit;
   private final int defaultAntWeeklyMessages;
   private final boolean antsEnabled;
+  private final int bicameralEveryNRuns;
 
   public DefaultAntService(
       AntRepository antRepository,
@@ -60,7 +61,8 @@ public class DefaultAntService implements IAntService {
       @Value("${antfarm.limits.defaultAntLimit:3}") int defaultAntLimit,
       @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit,
       @Value("${antfarm.limits.defaultAntWeeklyMessages:500}") int defaultAntWeeklyMessages,
-      @Value("${antfarm.ants.enabled:true}") boolean antsEnabled
+      @Value("${antfarm.ants.enabled:true}") boolean antsEnabled,
+      @Value("${antfarm.ants.bicameral.everyNRuns:3}") int bicameralEveryNRuns
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
@@ -73,6 +75,7 @@ public class DefaultAntService implements IAntService {
     this.defaultAntRoomLimit = defaultAntRoomLimit;
     this.defaultAntWeeklyMessages = defaultAntWeeklyMessages;
     this.antsEnabled = antsEnabled;
+    this.bicameralEveryNRuns = bicameralEveryNRuns;
   }
 
   @PostConstruct
@@ -129,7 +132,7 @@ public class DefaultAntService implements IAntService {
 
     boolean enabled = req.getEnabled() != null && req.getEnabled();
     boolean replyEvenIfNoNew = req.getReplyEvenIfNoNew() != null && req.getReplyEvenIfNoNew();
-    AiModel model = req.getModel() == null ? AiModel.MOCK : req.getModel();
+    AiModel model = req.getModel() == null ? AiModel.OPENAI_GPT_4_1_NANO : req.getModel();
 
     Ant ant = Ant.create(ownerUserId, req.getName(), model, req.getPersonalityPrompt(), interval, enabled, replyEvenIfNoNew, defaultAntWeeklyMessages);
     antRepository.create(ant);
@@ -340,6 +343,15 @@ public class DefaultAntService implements IAntService {
       var ctxPage = messageRepository.listByRoom(roomId, SUMMARY_WINDOW_MESSAGES_SIZE, null);
       String roomScenario = "";
 
+      // Pull scenario text from Room metadata so PromptBuilder can anchor responses to the room setting.
+      try {
+        roomScenario = roomRepository.findById(roomId)
+            .map(r -> r.scenarioText() == null ? "" : r.scenarioText())
+            .orElse("");
+      } catch (Exception e) {
+        log.warn("Failed to load room scenario for prompt context roomId={} (continuing)", roomId, e);
+      }
+
       roleNameForPrompt = assignment.roleName() == null ? "" : assignment.roleName();
       rolePromptForPrompt = "";
       if (assignment.roleId() != null && !assignment.roleId().isBlank()) {
@@ -365,6 +377,55 @@ public class DefaultAntService implements IAntService {
         working = working.incrementSummaryCounter(newMessagesInWindow);
       }
 
+      // Bicameral self-reflection trigger (message-driven, every N runs)
+      if (bicameralEveryNRuns > 0) {
+        int nextCounter = (working.bicameralThoughtCounter() == null ? 0 : working.bicameralThoughtCounter()) + 1;
+        working = working.incrementThoughtCounter(1);
+
+        if (nextCounter >= bicameralEveryNRuns) {
+          try {
+            IAntModelRunner runner = antScheduler.getRunner(ant.model());
+            AntModelContext thoughtCtx = new AntModelContext(
+                ctxPage.items(),
+                working.roomSummary(),
+                roomScenario,
+                ant.personalityPrompt(),
+                roleNameForPrompt,
+                rolePromptForPrompt,
+                working.bicameralThoughtJson()
+            );
+
+            String thoughtJson = runner.generateBicameralThought(ant, roomId, thoughtCtx);
+            if (thoughtJson != null && !thoughtJson.isBlank()) {
+              String trimmed = trimToMax(thoughtJson, 8_000);
+              working = working.withThought(trimmed, Instant.now(), 0);
+
+              if (log.isDebugEnabled()) {
+                String preview = trimmed.replaceAll("[\\r\\n]+", " ").trim();
+                if (preview.length() > 600) preview = preview.substring(0, 600) + "…";
+                log.debug("Bicameral thought updated antId={} roomId={} bytes={} preview={} ",
+                    ant.id(), roomId, trimmed.length(), preview);
+              }
+            } else {
+              // If thought generation returns blank, just reset counter to avoid tight loops.
+              working = working.withThought(working.bicameralThoughtJson(), working.bicameralThoughtAt(), 0);
+
+              if (log.isDebugEnabled()) {
+                log.debug("Bicameral thought generation returned blank antId={} roomId={} (counter reset)", ant.id(), roomId);
+              }
+            }
+          } catch (Exception e) {
+            log.warn("Bicameral thought generation failed antId={} roomId={} (continuing)", ant.id(), roomId, e);
+            // Reset counter to avoid retrying every tick if provider is failing.
+            working = working.withThought(working.bicameralThoughtJson(), working.bicameralThoughtAt(), 0);
+
+            if (log.isDebugEnabled()) {
+              log.debug("Bicameral thought NOT updated due to error antId={} roomId={} (counter reset)", ant.id(), roomId);
+            }
+          }
+        }
+      }
+
       int counter = working.summaryMsgCounter() == null ? 0 : working.summaryMsgCounter();
       boolean summaryMissing = working.roomSummary() == null || working.roomSummary().isBlank();
       boolean shouldRegenSummary = roomChanged && (summaryMissing || counter >= SUMMARY_WINDOW_MESSAGES_SIZE);
@@ -378,7 +439,8 @@ public class DefaultAntService implements IAntService {
             roomScenario,
             ant.personalityPrompt(),
             roleNameForPrompt,
-            rolePromptForPrompt
+            rolePromptForPrompt,
+            working.bicameralThoughtJson()
         );
         String updatedSummary = runner.generateRoomSummary(ant, roomId, summaryCtx, working.roomSummary());
 
@@ -403,7 +465,8 @@ public class DefaultAntService implements IAntService {
           roomScenario,
           ant.personalityPrompt(),
           roleNameForPrompt,
-          rolePromptForPrompt
+          rolePromptForPrompt,
+          working.bicameralThoughtJson()
       );
 
       IAntModelRunner runner = antScheduler.getRunner(ant.model());

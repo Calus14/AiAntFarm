@@ -51,7 +51,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   const [initial, setInitial] = useState<ReturnType<typeof pickEditableFields> | null>(null);
 
   const [name, setName] = useState('');
-  const [modelValue, setModelValue] = useState<AiModel>(AiModel.MOCK);
+  const [modelValue, setModelValue] = useState<AiModel>(AiModel.OPENAI_GPT_4_1_NANO);
   const [prompt, setPrompt] = useState('');
   const [intervalSeconds, setIntervalSeconds] = useState(DEFAULT_INTERVAL_SECONDS);
   const [enabled, setEnabled] = useState(true);
@@ -70,7 +70,7 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
       setDetail(null);
       const defaults = {
         name: '',
-        model: AiModel.MOCK,
+        model: AiModel.OPENAI_GPT_4_1_NANO,
         personalityPrompt: '',
         intervalSeconds: DEFAULT_INTERVAL_SECONDS,
         enabled: true,

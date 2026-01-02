@@ -15,7 +15,8 @@ public record AntModelContext(
     String roomScenario,
     String antPersonality,
     String roomRoleName,
-    String roomRolePrompt
+    String roomRolePrompt,
+    String bicameralThoughtJson
 ) {
   public AntModelContext {
     recentMessages = recentMessages == null ? List.of() : List.copyOf(recentMessages);
@@ -24,9 +25,10 @@ public record AntModelContext(
     antPersonality = antPersonality == null ? "" : antPersonality;
     roomRoleName = roomRoleName == null ? "" : roomRoleName;
     roomRolePrompt = roomRolePrompt == null ? "" : roomRolePrompt;
+    bicameralThoughtJson = bicameralThoughtJson == null ? "" : bicameralThoughtJson;
   }
 
   public AntModelContext(List<Message> recentMessages, String roomSummary, String roomScenario) {
-    this(recentMessages, roomSummary, roomScenario, "", "", "");
+    this(recentMessages, roomSummary, roomScenario, "", "", "", "");
   }
 }

@@ -122,6 +122,11 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
     e.setRoomSummary(a.roomSummary());
     e.setSummaryMsgCounter(a.summaryMsgCounter());
 
+    // bicameral thought
+    e.setBicameralThoughtJson(a.bicameralThoughtJson());
+    e.setBicameralThoughtAt(a.bicameralThoughtAt() != null ? a.bicameralThoughtAt().toString() : null);
+    e.setBicameralThoughtCounter(a.bicameralThoughtCounter());
+
     return e;
   }
 
@@ -129,6 +134,11 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
     Instant createdAt = e.getCreatedAt() != null ? Instant.parse(e.getCreatedAt()) : Instant.EPOCH;
     Instant updatedAt = e.getUpdatedAt() != null ? Instant.parse(e.getUpdatedAt()) : Instant.EPOCH;
     Instant lastRunAt = e.getLastRunAt() != null ? Instant.parse(e.getLastRunAt()) : null;
+
+    Instant thoughtAt = e.getBicameralThoughtAt() != null ? Instant.parse(e.getBicameralThoughtAt()) : null;
+    String thoughtJson = e.getBicameralThoughtJson() == null ? "" : e.getBicameralThoughtJson();
+    int thoughtCounter = e.getBicameralThoughtCounter() == null ? 0 : e.getBicameralThoughtCounter();
+
     return new AntRoomAssignment(
         e.getAntId(),
         e.getRoomId(),
@@ -140,7 +150,10 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
         e.getRoleId(),
         e.getRoleName(),
         e.getRoomSummary(),
-        e.getSummaryMsgCounter() == null ? 0 : e.getSummaryMsgCounter()
+        e.getSummaryMsgCounter() == null ? 0 : e.getSummaryMsgCounter(),
+        thoughtJson,
+        thoughtAt,
+        thoughtCounter
     );
   }
 }

@@ -113,7 +113,7 @@ public class AntRepositoryImpl implements AntRepository {
     e.setAntIdGSI(a.id());
     e.setOwnerUserId(a.ownerUserId());
     e.setName(a.name());
-    e.setModel((a.model() == null ? AiModel.MOCK : a.model()).name());
+    e.setModel((a.model() == null ? AiModel.OPENAI_GPT_4_1_NANO : a.model()).name());
     e.setPersonalityPrompt(a.personalityPrompt());
     e.setIntervalSeconds(a.intervalSeconds());
     e.setEnabled(a.enabled());
@@ -133,9 +133,9 @@ public class AntRepositoryImpl implements AntRepository {
 
     AiModel model;
     try {
-      model = e.getModel() == null || e.getModel().isBlank() ? AiModel.MOCK : AiModel.valueOf(e.getModel());
+      model = e.getModel() == null || e.getModel().isBlank() ? AiModel.OPENAI_GPT_4_1_NANO : AiModel.valueOf(e.getModel());
     } catch (Exception ex) {
-      model = AiModel.MOCK;
+      model = AiModel.OPENAI_GPT_4_1_NANO;
     }
 
     return new Ant(

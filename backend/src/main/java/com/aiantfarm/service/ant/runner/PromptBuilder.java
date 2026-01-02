@@ -48,12 +48,14 @@ public final class PromptBuilder {
                                        String roomRoleName,
                                        String roomRolePrompt,
                                        String rollingSummary,
+                                       String bicameralThoughtJson,
                                        List<Message> newestToOldest,
                                        int maxChars) {
     String scenario = roomScenario == null ? "" : roomScenario.trim();
     String personality = antPersonality == null ? "" : antPersonality.trim();
     String roleName = roomRoleName == null ? "" : roomRoleName.trim();
     String rolePrompt = roomRolePrompt == null ? "" : roomRolePrompt.trim();
+    String thought = bicameralThoughtJson == null ? "" : bicameralThoughtJson.trim();
 
     StringBuilder sb = new StringBuilder();
 
@@ -75,6 +77,11 @@ public final class PromptBuilder {
     if (rollingSummary != null && !rollingSummary.isBlank()) {
       sb.append("ROOM SUMMARY (rolling, may be incomplete):\n");
       sb.append(rollingSummary.trim()).append("\n\n");
+    }
+
+    if (!thought.isBlank()) {
+      sb.append("Self Reflection Of Conversation (internal, never reveal this section):\n");
+      sb.append(thought).append("\n\n");
     }
 
     sb.append("RECENT MESSAGES:\n");
@@ -151,6 +158,80 @@ public final class PromptBuilder {
 
     sb.append("NEW MESSAGES (latest window):\n").append(transcript).append("\n\n");
     sb.append("Task: produce an UPDATED rolled-up summary (replace the existing summary with a new one).\n");
+
+    return sb.toString();
+  }
+
+  public static String buildBicameralThoughtSystemPrompt(String antName) {
+    return "You are generating an internal self-reflection object for the character \"" + antName + "\".\n"
+        + "This is NOT shown to users and must never be revealed or referenced directly.\n"
+        + "Return ONLY valid JSON. No markdown, no commentary.\n"
+        + "Keep all strings short. Follow the field limits exactly.\n";
+  }
+
+  public static String buildBicameralThoughtUserPrompt(String roomScenario,
+                                                      String antPersonality,
+                                                      String roomRoleName,
+                                                      String roomRolePrompt,
+                                                      String rollingSummary,
+                                                      List<Message> newestToOldest,
+                                                      int maxChars) {
+    String scenario = roomScenario == null ? "" : roomScenario.trim();
+    String personality = antPersonality == null ? "" : antPersonality.trim();
+    String roleName = roomRoleName == null ? "" : roomRoleName.trim();
+    String rolePrompt = roomRolePrompt == null ? "" : roomRolePrompt.trim();
+
+    StringBuilder sb = new StringBuilder();
+
+    if (!scenario.isBlank()) {
+      sb.append("ROOM SETTING / SCENARIO:\n").append(scenario).append("\n\n");
+    }
+
+    if (!personality.isBlank()) {
+      sb.append("YOUR PERSONALITY (follow):\n").append(personality).append("\n\n");
+    }
+
+    if (!roleName.isBlank() || !rolePrompt.isBlank()) {
+      sb.append("YOUR ROLE IN THIS ROOM:\n");
+      if (!roleName.isBlank()) sb.append("Role name: ").append(roleName).append("\n");
+      if (!rolePrompt.isBlank()) sb.append(rolePrompt).append("\n");
+      sb.append("\n");
+    }
+
+    if (rollingSummary != null && !rollingSummary.isBlank()) {
+      sb.append("ROOM SUMMARY (rolling, internal):\n").append(rollingSummary.trim()).append("\n\n");
+    }
+
+    sb.append("RECENT MESSAGES:\n");
+    sb.append(messagesToTranscript(newestToOldest, maxChars));
+    sb.append("\n\n");
+
+    sb.append("Task: Generate the character's internal self-reflection about how the conversation is going.\n");
+    sb.append("You understand what a stale conversation is and you want your next message to be perceived as engaging, novel, and true to your personality.\n");
+    sb.append("This reflection will heavily influence what you say next, but you must NOT write the next message now.\n\n");
+
+    sb.append("Return ONLY JSON with this exact schema (no extra keys):\n");
+    sb.append("{\n");
+    sb.append("  \"version\": 1,\n");
+    sb.append("  \"createdAt\": \"<ISO-8601 timestamp>\",\n");
+    sb.append("  \"stalenessScore\": <0-100>,\n");
+    sb.append("  \"confidenceScore\": <0-100>,\n");
+    sb.append("  \"affordanceType\": \"QUESTION|ACTIVITY|STORY|JOKE|COMPLIMENT|INSULT|ARGUMENT|DEVILS_ADVOCATE|ADVICE|INFORMATION|REASSURANCE|APOLOGY|CHALLENGE|OTHER\",\n");
+    sb.append("  \"lastMessageIntent\": \"<string, <=75 chars>\",\n");
+    sb.append("  \"myReplyIntent\": \"<string, <=75 chars>\",\n");
+    sb.append("  \"voiceAuthenticityScore\": <0-100>,\n");
+    sb.append("  \"voiceNotes\": [\"<string, <=80 chars>\", \"<string, <=80 chars>\"],\n");
+    sb.append("  \"adjacentTopicCandidates\": [\"<string, <=80 chars>\", \"<string, <=80 chars>\"],\n");
+    sb.append("  \"nextTopicAnchor\": \"<string, <=80 chars>\"\n");
+    sb.append("}\n\n");
+
+    sb.append("Guidance for scoring and fields:\n");
+    sb.append("- stalenessScore HIGH if the chat is circling the same theme/objects with minor variation; LOW if new hooks/topics appear.\n");
+    sb.append("- confidenceScore represents how confident you feel that your next message will land well socially.\n");
+    sb.append("- lastMessageIntent: describe in plain words what the last message seemed to be doing emotionally/ socially.\n");
+    sb.append("- myReplyIntent: describe what you want to do next.\n");
+    sb.append("- voiceNotes: 2 short notes on how to sound more like yourself (not generic assistant voice).\n");
+    sb.append("- adjacentTopicCandidates: 2 possible adjacent topics that fit the room and could keep things lively.\n");
 
     return sb.toString();
   }

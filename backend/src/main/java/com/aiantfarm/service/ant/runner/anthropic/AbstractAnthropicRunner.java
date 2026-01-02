@@ -72,6 +72,7 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
         context == null ? "" : context.roomRoleName(),
         context == null ? "" : context.roomRolePrompt(),
         context == null ? "" : context.roomSummary(),
+        context == null ? "" : context.bicameralThoughtJson(),
         context == null ? null : context.recentMessages(),
         8_000);
 
@@ -184,6 +185,84 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
               roomId,
               model(),
               "GenerateRoomSummary",
+              system,
+              user,
+              out,
+              latencyMs,
+              inTok,
+              outTok
+          );
+        }
+
+        logSuccess(log, ant, roomId, model(), latencyMs, inTok, outTok);
+        return out.trim();
+
+      } catch (UnauthorizedException e) {
+        long latencyMs = (System.nanoTime() - start) / 1_000_000;
+        logFailure(log, ant, roomId, model(), latencyMs, e.getClass().getSimpleName(), "auth failed");
+        throw e;
+
+      } catch (RateLimitException | AnthropicIoException | AnthropicRetryableException | InternalServerException e) {
+        long latencyMs = (System.nanoTime() - start) / 1_000_000;
+        logFailure(log, ant, roomId, model(), latencyMs, e.getClass().getSimpleName(), e.getMessage());
+        if (attempt == maxAttempts - 1) throw e;
+        RetryUtil.sleepBackoff(attempt, 250, 2_000);
+
+      } catch (Exception e) {
+        long latencyMs = (System.nanoTime() - start) / 1_000_000;
+        logFailure(log, ant, roomId, model(), latencyMs, e.getClass().getSimpleName(), e.getMessage());
+        if (attempt == maxAttempts - 1) throw new RuntimeException(e);
+        RetryUtil.sleepBackoff(attempt, 250, 2_000);
+      }
+    }
+
+    throw new IllegalStateException("unreachable");
+  }
+
+  @Override
+  public String generateBicameralThought(Ant ant, String roomId, AntModelContext context) {
+    long start = System.nanoTime();
+
+    String system = PromptBuilder.buildBicameralThoughtSystemPrompt(ant.name());
+    String user = PromptBuilder.buildBicameralThoughtUserPrompt(
+        context == null ? "" : context.roomScenario(),
+        context == null ? "" : context.antPersonality(),
+        context == null ? "" : context.roomRoleName(),
+        context == null ? "" : context.roomRolePrompt(),
+        context == null ? "" : context.roomSummary(),
+        context == null ? null : context.recentMessages(),
+        8_000);
+
+    MessageCreateParams params = MessageCreateParams.builder()
+        .model(modelId)
+        .maxTokens(500L)
+        .temperature(0.2)
+        .system(system)
+        .addUserMessage(user)
+        .build();
+
+    int maxAttempts = 3;
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        Message resp = client.messages().create(params);
+
+        String out = extractText(resp);
+        long latencyMs = (System.nanoTime() - start) / 1_000_000;
+
+        Integer inTok = resp.usage() != null ? (int) resp.usage().inputTokens() : null;
+        Integer outTok = resp.usage() != null ? (int) resp.usage().outputTokens() : null;
+
+        if (isBlank(out)) {
+          logFailure(log, ant, roomId, model(), latencyMs, "BlankThought", "Anthropic returned blank thought JSON");
+          throw new IllegalStateException("blank thought");
+        }
+
+        if (transcriptLogger != null && transcriptLogger.enabled()) {
+          transcriptLogger.logPromptAndResponse(
+              ant,
+              roomId,
+              model(),
+              "GenerateBicameralThought",
               system,
               user,
               out,

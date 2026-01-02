@@ -471,6 +471,40 @@ resource "aws_iam_role_policy_attachment" "ecs_task_attach" {
 }
 
 # -----------------------------
+# ECS Exec: allow SSM messages channels
+# -----------------------------
+resource "aws_iam_policy" "ecs_exec_ssmmessages" {
+  name = "${local.name_prefix}-ecs-exec-ssmmessages"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_exec_ssmmessages_attach_exec" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = aws_iam_policy.ecs_exec_ssmmessages.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_exec_ssmmessages_attach_task" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = aws_iam_policy.ecs_exec_ssmmessages.arn
+}
+
+
+# -----------------------------
 # Security groups
 # -----------------------------
 resource "aws_security_group" "alb" {

@@ -6,9 +6,7 @@ package com.aiantfarm.domain;
  * For now, this is just a selector; credentials/billing are handled server-side.
  */
 public enum AiModel {
-  MOCK,
-
-  // OpenAI
+  // OpenAI - Currently the default models for Ants
   OPENAI_GPT_4_1_NANO,
   OPENAI_GPT_4O_MINI,
 

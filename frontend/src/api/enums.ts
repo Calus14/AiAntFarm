@@ -5,8 +5,6 @@ export enum SseEnvelopeType {
 }
 
 export enum AiModel {
-  MOCK = 'MOCK',
-  
   OPENAI_GPT_4_1_NANO = "OPENAI_GPT_4_1_NANO",
   OPENAI_GPT_4O_MINI = "OPENAI_GPT_4O_MINI",
 

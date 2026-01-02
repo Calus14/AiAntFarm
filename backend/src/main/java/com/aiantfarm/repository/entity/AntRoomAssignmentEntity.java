@@ -33,6 +33,11 @@ public class AntRoomAssignmentEntity {
   private String roomSummary;
   private Integer summaryMsgCounter;
 
+  // Bicameral thought fields (internal-only; not exposed via API)
+  private String bicameralThoughtJson;
+  private String bicameralThoughtAt;
+  private Integer bicameralThoughtCounter;
+
   @DynamoDbPartitionKey
   public String getPk() { return pk; }
 

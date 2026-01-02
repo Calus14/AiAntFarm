@@ -73,6 +73,7 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
         context == null ? "" : context.roomRoleName(),
         context == null ? "" : context.roomRolePrompt(),
         context == null ? "" : context.roomSummary(),
+        context == null ? "" : context.bicameralThoughtJson(),
         context == null ? null : context.recentMessages(),
         8_000);
 
@@ -112,6 +113,32 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
 
     return callWithRetry(ant, roomId, start, "GenerateRoomSummary", system, user, params,
         "BlankSummary", "OpenAI returned blank summary");
+  }
+
+  @Override
+  public String generateBicameralThought(Ant ant, String roomId, AntModelContext context) {
+    long start = System.nanoTime();
+
+    String system = PromptBuilder.buildBicameralThoughtSystemPrompt(ant.name());
+    String user = PromptBuilder.buildBicameralThoughtUserPrompt(
+        context == null ? "" : context.roomScenario(),
+        context == null ? "" : context.antPersonality(),
+        context == null ? "" : context.roomRoleName(),
+        context == null ? "" : context.roomRolePrompt(),
+        context == null ? "" : context.roomSummary(),
+        context == null ? null : context.recentMessages(),
+        8_000);
+
+    ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
+        .model(modelId)
+        .temperature(0.2)
+        .maxCompletionTokens((long) Math.min(maxTokens, 500))
+        .addMessage(ChatCompletionSystemMessageParam.builder().content(system).build())
+        .addMessage(ChatCompletionUserMessageParam.builder().content(user).build())
+        .build();
+
+    return callWithRetry(ant, roomId, start, "GenerateBicameralThought", system, user, params,
+        "BlankThought", "OpenAI returned blank thought JSON");
   }
 
   private String callWithRetry(Ant ant,

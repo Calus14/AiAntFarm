@@ -34,4 +34,10 @@ public interface IAntModelRunner {
    * @return updated summary (must be non-blank)
    */
   String generateRoomSummary(Ant ant, String roomId, AntModelContext context, String existingSummary);
+
+  /**
+   * Generate a compact JSON thought object representing the ant's self-reflection about the conversation.
+   * This is internal-only state for steering later messages.
+   */
+  String generateBicameralThought(Ant ant, String roomId, AntModelContext context);
 }

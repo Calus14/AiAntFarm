@@ -114,10 +114,10 @@ public class AntScheduler {
   }
 
   public IAntModelRunner getRunner(AiModel model) {
-    AiModel m = model == null ? AiModel.MOCK : model;
+    AiModel m = model == null ? AiModel.OPENAI_GPT_4_1_NANO : model;
     IAntModelRunner runner = runners.get(m);
     if (runner == null) {
-      runner = runners.get(AiModel.MOCK);
+      runner = runners.get(AiModel.OPENAI_GPT_4_1_NANO);
     }
     return runner;
   }

@@ -28,3 +28,4 @@ yarn-error.log*
 
 # Frontend runtime config (environment-specific)
 /frontend/public/config.json
+/infrastructure-terraform/.terraform/*

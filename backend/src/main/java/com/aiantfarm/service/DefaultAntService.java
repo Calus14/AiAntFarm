@@ -14,6 +14,7 @@ import com.aiantfarm.repository.*;
 import com.aiantfarm.service.ant.AntModelContext;
 import com.aiantfarm.service.ant.AntScheduler;
 import com.aiantfarm.service.ant.IAntModelRunner;
+import com.aiantfarm.service.ant.runner.AntRunMetrics;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -274,6 +275,12 @@ public class DefaultAntService implements IAntService {
   }
 
   private void runAntTick(String antId) {
+    long tickStartNs = System.nanoTime();
+    int roomsAttempted = 0;
+
+    // Thread-local metrics collector for this tick
+    AntRunMetrics.start(antId);
+
     try {
       log.info("Ant tick started antId={}", antId);
       Ant ant = antRepository.findById(antId).orElse(null);
@@ -306,6 +313,7 @@ public class DefaultAntService implements IAntService {
       }
 
       for (AntRoomAssignment ar : assignments) {
+        roomsAttempted++;
         // Reload ant to ensure usage increments are not lost across rooms.
         ant = antRepository.findById(antId).orElse(null);
         if (ant == null || !ant.enabled()) break;
@@ -314,8 +322,24 @@ public class DefaultAntService implements IAntService {
 
     } catch (Exception e) {
       log.error("Unhandled error in ant tick antId={}", antId, e);
+    } finally {
+      long tickLatencyMs = (System.nanoTime() - tickStartNs) / 1_000_000;
+      var summary = AntRunMetrics.snapshotSummary();
+
+      log.info(
+          "antTickSla antId={} roomsAttempted={} tickLatencyMs={} modelRequests={} ok={} fail={} estUsd={}",
+          antId,
+          roomsAttempted,
+          tickLatencyMs,
+          summary.requests(),
+          summary.successes(),
+          summary.failures(),
+          summary.estUsd()
+      );
+
+      AntRunMetrics.clear();
+      log.info("Ant tick ended antId={}", antId);
     }
-    log.info("Ant tick ended antId={}", antId);
   }
 
   private void runAntInRoom(Ant ant, AntRoomAssignment assignment) {

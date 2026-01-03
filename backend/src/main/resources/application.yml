@@ -66,6 +66,10 @@ antfarm:
     defaultAntRoomLimit: ${ANTFARM_DEFAULT_ANT_ROOM_LIMIT:3}
     defaultAntWeeklyMessages: ${ANTFARM_DEFAULT_ANT_WEEKLY_MESSAGES:500}
 
+  sla:
+    # Number of requests per endpoint before logging an average duration and resetting.
+    endpointSampleSize: ${ANTFARM_SLA_ENDPOINT_SAMPLE_SIZE:50}
+
 spring:
   cloud:
     aws:

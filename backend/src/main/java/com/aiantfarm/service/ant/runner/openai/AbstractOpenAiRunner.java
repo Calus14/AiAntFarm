@@ -171,7 +171,7 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
         }
 
         if (isBlank(out)) {
-          logFailure(log, ant, roomId, model(), latencyMs, blankCode, blankMsg);
+          logFailure(log, ant, roomId, model(), operation, latencyMs, blankCode, blankMsg, attempt + 1, maxAttempts);
           throw new IllegalStateException("blank response");
         }
 
@@ -191,23 +191,23 @@ public abstract class AbstractOpenAiRunner extends ModelRunnerSupport implements
           );
         }
 
-        logSuccess(log, ant, roomId, model(), latencyMs, inTok, outTok);
+        logSuccess(log, ant, roomId, model(), operation, latencyMs, inTok, outTok, attempt + 1, maxAttempts);
         return out.trim();
 
       } catch (UnauthorizedException e) {
         long latencyMs = (System.nanoTime() - startNano) / 1_000_000;
-        logFailure(log, ant, roomId, model(), latencyMs, e.getClass().getSimpleName(), "auth failed");
+        logFailure(log, ant, roomId, model(), operation, latencyMs, e.getClass().getSimpleName(), "auth failed", attempt + 1, maxAttempts);
         throw e;
 
       } catch (RateLimitException | OpenAIIoException | OpenAIRetryableException e) {
         long latencyMs = (System.nanoTime() - startNano) / 1_000_000;
-        logFailure(log, ant, roomId, model(), latencyMs, e.getClass().getSimpleName(), e.getMessage());
+        logFailure(log, ant, roomId, model(), operation, latencyMs, e.getClass().getSimpleName(), e.getMessage(), attempt + 1, maxAttempts);
         if (attempt == maxAttempts - 1) throw e;
         RetryUtil.sleepBackoff(attempt, 250, 2_000);
 
       } catch (Exception e) {
         long latencyMs = (System.nanoTime() - startNano) / 1_000_000;
-        logFailure(log, ant, roomId, model(), latencyMs, e.getClass().getSimpleName(), e.getMessage());
+        logFailure(log, ant, roomId, model(), operation, latencyMs, e.getClass().getSimpleName(), e.getMessage(), attempt + 1, maxAttempts);
         if (attempt == maxAttempts - 1) throw new RuntimeException(e);
         RetryUtil.sleepBackoff(attempt, 250, 2_000);
       }

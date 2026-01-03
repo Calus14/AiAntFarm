@@ -30,6 +30,8 @@ public class SecurityConfig {
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
             // Public auth endpoints - using wildcard to be safe against path variations
             .requestMatchers("/api/v1/auth/**").permitAll()
+            // Public read-only endpoints
+            .requestMatchers("/api/v1/public/**").permitAll()
             .anyRequest().authenticated()
         );
 

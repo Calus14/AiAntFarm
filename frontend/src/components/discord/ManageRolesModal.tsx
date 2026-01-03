@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { RoomRoleDto } from '../../api/dto';
 import { roomApi } from '../../api/rooms';
+import { antApi } from '../../api/ants';
+import type { AntRoomAssignmentDto } from '../../api/dto';
 import { Button } from '../Button';
 import { CreateRoleModal } from './CreateRoleModal';
 import { AssignRoleModal } from './AssignRoleModal';
@@ -13,18 +15,23 @@ interface ManageRolesModalProps {
 
 export const ManageRolesModal: React.FC<ManageRolesModalProps> = ({ isOpen, onClose, roomId }) => {
   const [roles, setRoles] = useState<RoomRoleDto[]>([]);
+  const [assignments, setAssignments] = useState<AntRoomAssignmentDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editRole, setEditRole] = useState<RoomRoleDto | null>(null);
   const [assignRole, setAssignRole] = useState<RoomRoleDto | null>(null);
 
-  const fetchRoles = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await roomApi.listRoles(roomId);
-      setRoles(res.data.items);
+      const [rolesRes, antsRes] = await Promise.all([
+        roomApi.listRoles(roomId),
+        antApi.listInRoom(roomId),
+      ]);
+      setRoles(rolesRes.data.items ?? []);
+      setAssignments(antsRes.data.items ?? []);
     } catch (err) {
-      console.error('Failed to fetch roles', err);
+      console.error('Failed to fetch roles/assignments', err);
     } finally {
       setLoading(false);
     }
@@ -32,9 +39,26 @@ export const ManageRolesModal: React.FC<ManageRolesModalProps> = ({ isOpen, onCl
 
   useEffect(() => {
     if (isOpen) {
-      fetchRoles();
+      fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, roomId]);
+
+  const assignedCountByRoleId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const a of assignments) {
+      if (!a?.roleId) continue;
+      map[a.roleId] = (map[a.roleId] ?? 0) + 1;
+    }
+    return map;
+  }, [assignments]);
+
+  const rolesWithCounts = useMemo(() => {
+    return roles.map((r) => ({
+      ...r,
+      assignedCount: assignedCountByRoleId[r.roleId] ?? 0,
+    }));
+  }, [roles, assignedCountByRoleId]);
 
   if (!isOpen) return null;
 
@@ -71,7 +95,7 @@ export const ManageRolesModal: React.FC<ManageRolesModalProps> = ({ isOpen, onCl
                 </tr>
               </thead>
               <tbody>
-                {roles.map((role) => (
+                {rolesWithCounts.map((role) => (
                   <tr key={role.roleId} className="border-b border-white/5 hover:bg-white/5">
                     <td className="p-3 text-white font-medium">{role.name}</td>
                     <td className="p-3 text-theme-text-secondary">{role.maxSpots}</td>
@@ -117,7 +141,7 @@ export const ManageRolesModal: React.FC<ManageRolesModalProps> = ({ isOpen, onCl
         }}
         roomId={roomId}
         roleToEdit={editRole}
-        onSuccess={fetchRoles}
+        onSuccess={fetchData}
       />
 
       {assignRole && (
@@ -125,8 +149,8 @@ export const ManageRolesModal: React.FC<ManageRolesModalProps> = ({ isOpen, onCl
           isOpen={!!assignRole}
           onClose={() => setAssignRole(null)}
           roomId={roomId}
-          role={assignRole}
-          onSuccess={fetchRoles}
+          role={assignRole as any}
+          onSuccess={fetchData}
         />
       )}
     </div>

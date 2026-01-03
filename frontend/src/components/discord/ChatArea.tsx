@@ -13,6 +13,8 @@ import { MessageInput } from './MessageInput';
 import { AntsModal } from './AntsModal';
 import { ScenarioPanel } from './ScenarioPanel';
 import { ManageRolesModal } from './ManageRolesModal';
+import { ParticipantInfoModal } from './ParticipantInfoModal';
+import { SplitPane } from '../ui/SplitPane';
 
 export const ChatArea = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -22,6 +24,12 @@ export const ChatArea = () => {
   const [loading, setLoading] = useState(true);
   const [showAntsModal, setShowAntsModal] = useState(false);
   const [showRolesModal, setShowRolesModal] = useState(false);
+  const [participantModalOpen, setParticipantModalOpen] = useState(false);
+  const [participantMode, setParticipantMode] = useState<
+    | { kind: 'USER'; userId: string; displayName: string }
+    | { kind: 'ANT'; antId: string; displayName: string; roomId?: string }
+    | null
+  >(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -159,34 +167,17 @@ export const ChatArea = () => {
     }
   };
 
-  return (
-    <div className="flex-1 flex flex-col bg-theme-base h-full relative overflow-hidden">
-      {/* Header - Always visible */}
-      <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 shrink-0 backdrop-blur-md bg-theme-base/50 sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <span className="text-theme-muted text-2xl font-light">#</span>
-          <h1 className="font-bold text-theme-primary tracking-tight">
-            {room?.name || 'Loading...'}
-          </h1>
-        </div>
-        
-        <button 
-          onClick={() => setShowAntsModal(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-theme-primary/10 text-theme-primary hover:bg-theme-primary/20 transition-colors text-sm font-medium"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-          <span>Ants</span>
-        </button>
-      </header>
+  const openParticipant = (info: { kind: 'USER' | 'ANT'; id: string; displayName: string }) => {
+    if (info.kind === 'ANT') {
+      setParticipantMode({ kind: 'ANT', antId: info.id, displayName: info.displayName, roomId: roomId });
+    } else {
+      setParticipantMode({ kind: 'USER', userId: info.id, displayName: info.displayName });
+    }
+    setParticipantModalOpen(true);
+  };
 
-      {room && (
-        <ScenarioPanel
-          room={room}
-          onUpdate={handleUpdateScenario}
-          onManageRoles={() => setShowRolesModal(true)}
-        />
-      )}
-
+  const messagesArea = (
+    <>
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-1 scrollbar-thin custom-scrollbar">
         {loading && messages.length === 0 ? (
@@ -205,10 +196,11 @@ export const ChatArea = () => {
             <div className="flex-1" />
             <div className="pb-4">
               {messages.map((msg) => (
-                <MessageItem 
-                  key={msg.messageId} 
-                  message={msg} 
+                <MessageItem
+                  key={msg.messageId}
+                  message={msg}
                   isMe={msg.authorName === user?.id}
+                  onClickAuthor={openParticipant}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -219,11 +211,62 @@ export const ChatArea = () => {
 
       {/* Input Area - Always visible */}
       <div className="p-6 pt-0 shrink-0">
-        <MessageInput 
+        <MessageInput
           onSendMessage={handleSendMessage}
           placeholder={room ? `Message #${room.name}` : "Connecting..."}
         />
       </div>
+    </>
+  );
+
+  return (
+    <div className="flex-1 flex flex-col bg-theme-base h-full relative overflow-hidden">
+      {/* Header - Always visible */}
+      <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 shrink-0 backdrop-blur-md bg-theme-base/50 sticky top-0 z-20">
+        <div className="flex items-center gap-3">
+          <span className="text-theme-muted text-2xl font-light">#</span>
+          <h1 className="font-bold text-theme-primary tracking-tight">
+            {room?.name || 'Loading...'}
+          </h1>
+        </div>
+
+        <button
+          onClick={() => setShowAntsModal(true)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-theme-primary/10 text-theme-primary hover:bg-theme-primary/20 transition-colors text-sm font-medium"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>Ants</span>
+        </button>
+      </header>
+
+      {room ? (
+        <div className="flex-1 min-h-0">
+          <SplitPane
+            id={`room-${room.roomId}-scenario`}
+            direction="vertical"
+            minPrimaryPx={44}
+            minSecondaryPx={240}
+            maxPrimarySizeRatio={0.34}
+            initialPrimarySizeRatio={0.2}
+            primary={
+              <ScenarioPanel
+                room={room}
+                onUpdate={handleUpdateScenario}
+                onManageRoles={() => setShowRolesModal(true)}
+              />
+            }
+            secondary={
+              <div className="flex flex-col h-full min-h-0">
+                {messagesArea}
+              </div>
+            }
+          />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {messagesArea}
+        </div>
+      )}
 
       {showAntsModal && roomId && (
         <AntsModal roomId={roomId} onClose={() => setShowAntsModal(false)} />
@@ -236,6 +279,15 @@ export const ChatArea = () => {
           roomId={roomId}
         />
       )}
+
+      <ParticipantInfoModal
+        isOpen={participantModalOpen}
+        onClose={() => {
+          setParticipantModalOpen(false);
+          setParticipantMode(null);
+        }}
+        mode={participantMode}
+      />
     </div>
   );
 };

@@ -50,10 +50,6 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
       setError('Max spots must be at least 1');
       return;
     }
-    if (roleToEdit && maxSpots < roleToEdit.assignedCount) {
-      setError(`Cannot reduce max spots below current assigned count (${roleToEdit.assignedCount})`);
-      return;
-    }
 
     setLoading(true);
     setError(null);
@@ -129,11 +125,6 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
               value={maxSpots}
               onChange={(e) => setMaxSpots(parseInt(e.target.value) || 0)}
             />
-            {roleToEdit && (
-              <p className="text-xs text-theme-text-secondary mt-1">
-                Currently assigned: {roleToEdit.assignedCount}
-              </p>
-            )}
           </div>
 
           <div>

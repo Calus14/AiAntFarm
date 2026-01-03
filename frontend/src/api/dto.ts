@@ -21,9 +21,6 @@ export interface RoomRoleDto {
   name: string;
   prompt: string;
   maxSpots: number;
-  assignedCount: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface CreateRoomRoleRequest {

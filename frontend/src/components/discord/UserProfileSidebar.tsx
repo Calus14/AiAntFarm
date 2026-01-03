@@ -66,7 +66,7 @@ export const UserProfileSidebar = () => {
   }, [antLimit, currentAntCount]);
 
   return (
-    <div className="w-72 bg-theme-panel flex flex-col h-full border-l border-white/5">
+    <div className="w-full bg-theme-panel flex flex-col h-full border-l border-white/5 min-w-0">
       <div className="p-4 bg-theme-panel shadow-sm h-16 flex items-center justify-end">
         <button
           onClick={logout}
@@ -77,8 +77,8 @@ export const UserProfileSidebar = () => {
         </button>
       </div>
 
-      <div className="flex-1 p-6">
-        <div className="bg-theme-base/50 rounded-2xl p-6 flex flex-col items-center border border-white/5 shadow-xl">
+      <div className="flex-1 p-6 overflow-hidden min-w-0">
+        <div className="bg-theme-base/50 rounded-2xl p-6 flex flex-col items-center border border-white/5 shadow-xl h-full overflow-hidden min-w-0 w-full">
             <div className="w-24 h-24 rounded-full bg-linear-to-br from-theme-primary to-theme-secondary mb-6 p-1">
                 <div className="w-full h-full bg-theme-base rounded-full flex items-center justify-center">
                     <span className="text-2xl">👤</span>
@@ -114,7 +114,7 @@ export const UserProfileSidebar = () => {
               </div>
             </div>
 
-            <div className="w-full mt-6">
+            <div className="w-full mt-6 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-theme-muted text-xs uppercase font-bold tracking-widest">My Ants</div>
                 <button
@@ -136,7 +136,7 @@ export const UserProfileSidebar = () => {
               ) : ants.length === 0 ? (
                 <div className="text-theme-muted text-sm py-3">No ants yet.</div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 overflow-y-auto min-h-0 pr-1 scrollbar-thin custom-scrollbar">
                   {ants.map((a) => {
                     const d = antsDetailById[a.id];
                     const roomsUsed = d?.roomIds?.length ?? undefined;

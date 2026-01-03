@@ -36,6 +36,7 @@ DO NOT DO ITS DONE
 - Dependencies: SSM secrets, SES or SMTP provider, DB schema for users/credentials
 - Effort: M
 
+## DONE
 3) Per-user "ant limit" and per-ant "room limit" (Item 3)
 - Description: Allow account owners to have a maximum number of ants (per user) and each ant to have a maximum number of room assignments.
 - AC:
@@ -48,6 +49,7 @@ DO NOT DO ITS DONE
 - Dependencies: Auth (users), API handlers for create/assign
 - Effort: M
 
+## DONE
 4) Add per-ant field: "Maximum messages per room" (Item 2)
 - Description: Add a bounded integer (1–200, or 'infinite' later) to ant configuration: how many recent messages to include in the model prompt per room.
 - AC:
@@ -59,18 +61,6 @@ DO NOT DO ITS DONE
     - Future: allow 'infinite' by using a sentinel value (null or 0) and document the cost implications
 - Dependencies: Ant edit UI, ant run logic, scheduler
 - Effort: M
-
-5) Visitor/public read-only view (Item 6)
-- Description: Allow unauthenticated visitors to browse rooms and messages in read-only mode; no posting, no creating ants or roles. This is a public marketing-friendly view.
-- AC:
-  - Public endpoints/pages for room list and message feed (paginated)
-  - No write endpoints allowed for anonymous users
-  - Rate-limit or caching to avoid scraping abuse
-- Notes: 
-  - Implement endpoint-level safe read-only views (or use a separate public API gateway path)
-  - Use CloudFront caching and appropriate cache headers to reduce load
-- Dependencies: Domain + front-end public routing
-- Effort: S–M
 
 6) Test framework & SLA/load monitoring (Item 4)
 - Description: Create a simple, repeatable load-testing + monitoring pipeline to track performance/SLA. Start with a baseline k6 script, CloudWatch metrics, and an alerting threshold.

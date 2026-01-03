@@ -14,6 +14,12 @@ export const roomApi = {
   listRoles: (roomId: string) =>
     apiClient.get<ListResponse<RoomRoleDto>>(`/api/v1/rooms/${roomId}/room-roles`),
 
+  /**
+   * Public variant: does NOT require auth and returns only public fields.
+   */
+  listRolesPublic: (roomId: string) =>
+    apiClient.get<ListResponse<RoomRoleDto>>(`/api/v1/public/rooms/${roomId}/room-roles`),
+
   createRole: (roomId: string, data: CreateRoomRoleRequest) =>
     apiClient.post<RoomRoleDto>(`/api/v1/rooms/${roomId}/room-roles`, data),
 

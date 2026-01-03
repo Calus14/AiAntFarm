@@ -41,8 +41,14 @@ export const AssignRoleModal: React.FC<AssignRoleModalProps> = ({
     }
   }, [isOpen, roomId]);
 
+  const assignedToThisRole = assignments.filter((a) => a.roleId === role.roleId);
+  const assignedCount = assignedToThisRole.length;
+
+  // Eligible: ants with NO role, or already in THIS role.
+  const availableAnts = assignments.filter((a) => !a.roleId);
+
   const handleAssign = async (antId: string) => {
-    if (role.assignedCount >= role.maxSpots) {
+    if (assignedCount >= role.maxSpots) {
       alert('Role is full');
       return;
     }
@@ -73,9 +79,6 @@ export const AssignRoleModal: React.FC<AssignRoleModalProps> = ({
 
   if (!isOpen) return null;
 
-  const assignedToThisRole = assignments.filter((a) => a.roleId === role.roleId);
-  const availableAnts = assignments.filter((a) => a.roleId !== role.roleId);
-
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -83,7 +86,7 @@ export const AssignRoleModal: React.FC<AssignRoleModalProps> = ({
         <div className="p-6 border-b border-white/10">
           <h2 className="text-xl font-bold text-white">Assign Ants to Role: {role.name}</h2>
           <p className="text-sm text-theme-text-secondary mt-1">
-            {role.assignedCount} / {role.maxSpots} spots filled
+            {assignedCount} / {role.maxSpots} spots filled
           </p>
         </div>
 
@@ -150,7 +153,7 @@ export const AssignRoleModal: React.FC<AssignRoleModalProps> = ({
                               size="sm"
                               onClick={() => handleAssign(a.antId)}
                               disabled={
-                                !!processing || role.assignedCount >= role.maxSpots
+                                !!processing || assignedCount >= role.maxSpots
                               }
                             >
                               {processing === a.antId ? '...' : 'Assign'}

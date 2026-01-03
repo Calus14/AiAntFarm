@@ -43,10 +43,10 @@ export const ScenarioPanel: React.FC<ScenarioPanelProps> = ({ room, onUpdate, on
 
   if (isEditing) {
     return (
-      <div className="bg-theme-bg-secondary p-4 border-b border-white/10">
+      <div className="bg-theme-bg-secondary p-4 border-b border-white/10 h-full overflow-hidden flex flex-col">
         <h3 className="text-sm font-bold text-theme-text-primary mb-2">Edit Room Scenario</h3>
         <textarea
-          className="w-full bg-theme-bg-primary text-theme-text-primary p-2 rounded border border-white/10 focus:border-theme-primary outline-none min-h-[100px]"
+          className="w-full bg-theme-bg-primary text-theme-text-primary p-2 rounded border border-white/10 focus:border-theme-primary outline-none flex-1 min-h-0"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           placeholder="Enter scenario text..."
@@ -65,8 +65,8 @@ export const ScenarioPanel: React.FC<ScenarioPanelProps> = ({ room, onUpdate, on
   }
 
   return (
-    <div className="bg-theme-bg-secondary p-4 border-b border-white/10">
-      <div className="flex justify-between items-start mb-2">
+    <div className="bg-theme-bg-secondary p-4 border-b border-white/10 h-full overflow-hidden flex flex-col">
+      <div className="flex justify-between items-start mb-2 shrink-0">
         <h3 className="text-sm font-bold text-theme-text-primary">Room Scenario</h3>
         <div className="flex gap-3">
           {isOwner && onManageRoles && (
@@ -87,7 +87,7 @@ export const ScenarioPanel: React.FC<ScenarioPanelProps> = ({ room, onUpdate, on
           )}
         </div>
       </div>
-      <div className="text-sm text-theme-text-secondary whitespace-pre-wrap">
+      <div className="text-sm text-theme-text-secondary whitespace-pre-wrap overflow-y-auto min-h-0 pr-2 scrollbar-thin custom-scrollbar">
         {room.scenarioText ? (
           room.scenarioText
         ) : (

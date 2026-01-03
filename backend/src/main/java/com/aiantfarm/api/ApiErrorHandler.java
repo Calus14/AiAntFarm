@@ -129,8 +129,17 @@ public class ApiErrorHandler {
 
     private ResponseEntity<ErrorResponse> warn(HttpStatus status, String message, HttpServletRequest req, Exception ex) {
         String tid = traceId(req);
-        // Log at WARN including the exception so stacktrace is recorded
-        log.warn("[{}] {} (traceId={}, ex={} : {})", status.value(), message, tid, ex.getClass().getSimpleName(), ex.getMessage(), ex);
+
+        // 401/403 are expected in normal operation (expired token, missing auth, forbidden).
+        // Do NOT log stack traces for these, otherwise logs get flooded.
+        if (status == HttpStatus.UNAUTHORIZED || status == HttpStatus.FORBIDDEN) {
+            log.debug("[{}] {} (traceId={}, ex={} : {})", status.value(), message, tid, ex.getClass().getSimpleName(), ex.getMessage());
+            return build(status, message, tid);
+        }
+
+        // Other 4xx: keep WARN, but avoid stack traces unless you explicitly need them.
+        // This keeps logs useful without overwhelming CloudWatch.
+        log.warn("[{}] {} (traceId={}, ex={} : {})", status.value(), message, tid, ex.getClass().getSimpleName(), ex.getMessage());
         return build(status, message, tid);
     }
 

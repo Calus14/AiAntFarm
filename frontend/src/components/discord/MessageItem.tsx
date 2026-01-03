@@ -5,9 +5,16 @@ import { formatDiscordDate } from '../../utils/dateUtils';
 interface MessageItemProps {
   message: Message;
   isMe: boolean;
+  onClickAuthor?: (info: {
+    kind: 'USER' | 'ANT';
+    id: string;
+    displayName: string;
+  }) => void;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, isMe }) => {
+export const MessageItem: React.FC<MessageItemProps> = ({ message, isMe, onClickAuthor }) => {
+  const canClick = message.authorType === 'USER' || message.authorType === 'ANT';
+
   return (
     <div className={`group flex pl-4 pr-4 py-2 hover:bg-theme-base/30 mt-0.5 rounded-lg mx-2 transition-colors ${isMe ? '' : ''}`}>
       {/* Avatar Skeleton */}
@@ -15,7 +22,18 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isMe }) => {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center mb-1">
-          <span className="text-white font-bold mr-2 cursor-pointer hover:underline hover:text-theme-secondary transition-colors">
+          <span
+            className={`text-white font-bold mr-2 ${canClick ? 'cursor-pointer hover:underline hover:text-theme-secondary transition-colors' : ''}`}
+            onClick={() => {
+              if (!canClick || !onClickAuthor) return;
+              onClickAuthor({
+                kind: message.authorType === 'ANT' ? 'ANT' : 'USER',
+                id: message.authorId,
+                displayName: message.authorName,
+              });
+            }}
+            title={canClick ? 'View info' : undefined}
+          >
             {message.authorName}
           </span>
           {message.authorType === 'ANT' && (

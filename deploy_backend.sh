@@ -6,8 +6,11 @@ echo "   AiAntFarm Backend Deployment"
 echo "========================================"
 
 # Configuration
-AWS_REGION="us-east-2"
+AWS_REGION="${AWS_REGION:-us-east-2}"
+export AWS_REGION
+export AWS_DEFAULT_REGION="$AWS_REGION"
 IMAGE_TAG="v$(date +%s)"
+export IMAGE_TAG
 
 # 1. Get Infrastructure Details
 echo "[1/5] Fetching infrastructure details from Terraform..."

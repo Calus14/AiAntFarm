@@ -471,40 +471,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_attach" {
 }
 
 # -----------------------------
-# ECS Exec: allow SSM messages channels
-# -----------------------------
-resource "aws_iam_policy" "ecs_exec_ssmmessages" {
-  name = "${local.name_prefix}-ecs-exec-ssmmessages"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ssmmessages:CreateControlChannel",
-          "ssmmessages:CreateDataChannel",
-          "ssmmessages:OpenControlChannel",
-          "ssmmessages:OpenDataChannel"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_exec_ssmmessages_attach_exec" {
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = aws_iam_policy.ecs_exec_ssmmessages.arn
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_exec_ssmmessages_attach_task" {
-  role       = aws_iam_role.ecs_task.name
-  policy_arn = aws_iam_policy.ecs_exec_ssmmessages.arn
-}
-
-
-# -----------------------------
 # Security groups
 # -----------------------------
 resource "aws_security_group" "alb" {
@@ -569,99 +535,6 @@ resource "aws_security_group" "ecs" {
 # VPC Endpoints (so private subnets can reach AWS APIs without NAT)
 # -----------------------------
 
-# Security group for interface endpoints (allow HTTPS from ECS tasks)
-resource "aws_security_group" "vpc_endpoints" {
-  name        = "${local.name_prefix}-vpce-sg"
-  description = "Allow ECS tasks to reach VPC interface endpoints (HTTPS)"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description     = "HTTPS from ECS tasks"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${local.name_prefix}-vpce-sg"
-  }
-}
-
-# SSM is required because ECS pulls SecureString env vars from Parameter Store before the container starts.
-resource "aws_vpc_endpoint" "ssm" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ssm"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-
-  tags = {
-    Name = "${local.name_prefix}-vpce-ssm"
-  }
-}
-
-resource "aws_vpc_endpoint" "ssmmessages" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ssmmessages"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-
-  tags = {
-    Name = "${local.name_prefix}-vpce-ssmmessages"
-  }
-}
-
-resource "aws_vpc_endpoint" "ec2messages" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ec2messages"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-
-  tags = {
-    Name = "${local.name_prefix}-vpce-ec2messages"
-  }
-}
-
-# ECR endpoints let tasks pull images without NAT.
-resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ecr.api"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-
-  tags = {
-    Name = "${local.name_prefix}-vpce-ecr-api"
-  }
-}
-
-resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ecr.dkr"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-
-  tags = {
-    Name = "${local.name_prefix}-vpce-ecr-dkr"
-  }
-}
-
 # Image layers are stored in S3; gateway endpoint keeps that traffic inside the VPC.
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.main.id
@@ -672,20 +545,6 @@ resource "aws_vpc_endpoint" "s3" {
 
   tags = {
     Name = "${local.name_prefix}-vpce-s3"
-  }
-}
-
-# CloudWatch Logs endpoint helps with reliability (tasks can still log without NAT).
-resource "aws_vpc_endpoint" "logs" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.logs"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-
-  tags = {
-    Name = "${local.name_prefix}-vpce-logs"
   }
 }
 

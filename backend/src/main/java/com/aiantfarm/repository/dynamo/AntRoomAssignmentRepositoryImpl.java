@@ -127,6 +127,9 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
     e.setBicameralThoughtAt(a.bicameralThoughtAt() != null ? a.bicameralThoughtAt().toString() : null);
     e.setBicameralThoughtCounter(a.bicameralThoughtCounter());
 
+    // no-response streak
+    e.setNoResponseStreak(a.noResponseStreak());
+
     return e;
   }
 
@@ -138,6 +141,7 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
     Instant thoughtAt = e.getBicameralThoughtAt() != null ? Instant.parse(e.getBicameralThoughtAt()) : null;
     String thoughtJson = e.getBicameralThoughtJson() == null ? "" : e.getBicameralThoughtJson();
     int thoughtCounter = e.getBicameralThoughtCounter() == null ? 0 : e.getBicameralThoughtCounter();
+    int noResponseStreak = e.getNoResponseStreak() == null ? 0 : e.getNoResponseStreak();
 
     return new AntRoomAssignment(
         e.getAntId(),
@@ -153,7 +157,8 @@ public class AntRoomAssignmentRepositoryImpl implements AntRoomAssignmentReposit
         e.getSummaryMsgCounter() == null ? 0 : e.getSummaryMsgCounter(),
         thoughtJson,
         thoughtAt,
-        thoughtCounter
+        thoughtCounter,
+        noResponseStreak
     );
   }
 }

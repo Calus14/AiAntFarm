@@ -51,6 +51,11 @@ public class DefaultAntService implements IAntService {
   private final boolean antsEnabled;
   private final int bicameralEveryNRuns;
 
+  // If an ant repeatedly returns <<<NO_RESPONSE>>> we eventually force it to speak.
+  private final int maxNoResponseStreak;
+
+  private static final String NO_RESPONSE_SENTINEL = "<<<NO_RESPONSE>>>";
+
   public DefaultAntService(
       AntRepository antRepository,
       AntRoomAssignmentRepository assignmentRepository,
@@ -63,7 +68,8 @@ public class DefaultAntService implements IAntService {
       @Value("${antfarm.limits.defaultAntRoomLimit:3}") int defaultAntRoomLimit,
       @Value("${antfarm.limits.defaultAntWeeklyMessages:500}") int defaultAntWeeklyMessages,
       @Value("${antfarm.ants.enabled:true}") boolean antsEnabled,
-      @Value("${antfarm.ants.bicameral.everyNRuns:3}") int bicameralEveryNRuns
+      @Value("${antfarm.ants.bicameral.everyNRuns:3}") int bicameralEveryNRuns,
+      @Value("${antfarm.chat.maxNoResponseStreak:3}") int maxNoResponseStreak
   ) {
     this.antRepository = antRepository;
     this.assignmentRepository = assignmentRepository;
@@ -77,6 +83,7 @@ public class DefaultAntService implements IAntService {
     this.defaultAntWeeklyMessages = defaultAntWeeklyMessages;
     this.antsEnabled = antsEnabled;
     this.bicameralEveryNRuns = bicameralEveryNRuns;
+    this.maxNoResponseStreak = maxNoResponseStreak;
   }
 
   @PostConstruct
@@ -483,6 +490,15 @@ public class DefaultAntService implements IAntService {
         return;
       }
 
+      // right before constructing AntModelContext ctx
+      boolean forceReply = false;
+      int streak = working.noResponseStreak() == null ? 0 : working.noResponseStreak();
+      if (maxNoResponseStreak > 0 && streak >= maxNoResponseStreak) {
+        forceReply = true;
+      }
+
+      String thoughtJsonForPrompt = forceReply ? "__FORCE_REPLY__" : working.bicameralThoughtJson();
+
       var ctx = new AntModelContext(
           ctxPage.items(),
           working.roomSummary(),
@@ -490,7 +506,7 @@ public class DefaultAntService implements IAntService {
           ant.personalityPrompt(),
           roleNameForPrompt,
           rolePromptForPrompt,
-          working.bicameralThoughtJson()
+          thoughtJsonForPrompt
       );
 
       IAntModelRunner runner = antScheduler.getRunner(ant.model());
@@ -499,11 +515,27 @@ public class DefaultAntService implements IAntService {
         throw new IllegalStateException("Model runner returned blank content model=" + ant.model());
       }
 
+      String trimmed = content.trim();
+      if (NO_RESPONSE_SENTINEL.equals(trimmed)) {
+        // Model chose silence: do not post, do not persist, do not count against quotas.
+        AntRoomAssignment updated = working.incrementNoResponseStreak(1);
+
+        int newStreak = updated.noResponseStreak() == null ? 0 : updated.noResponseStreak();
+
+        assignmentRepository.update(updated.withLastSeen(latestMessageId, Instant.now()));
+        return;
+      }
+
+      // Reset streak on real message
+      if (working.noResponseStreak() != null && working.noResponseStreak() > 0) {
+        working = working.withNoResponseStreak(0);
+      }
+
       Message msg = Message.createAntMsg(roomId, ant.id(), ant.name(), content);
       messageRepository.create(msg);
       RoomController.broadcastMessage(roomId, msg, ant.name());
 
-      // Increment usage (persisted on the ant item)
+      // Increment usage ONLY for real messages
       antRepository.update(ant.withUsageIncremented());
 
       latestMessageId = msg.id();

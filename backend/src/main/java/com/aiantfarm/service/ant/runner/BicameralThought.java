@@ -16,7 +16,6 @@ public record BicameralThought(
     Instant createdAt,
     int stalenessScore,          // 0-100
     int confidenceScore,         // 0-100
-    AffordanceType affordanceType,
     String lastMessageIntent,    // <= 75 chars
     String myReplyIntent,        // <= 75 chars
     int voiceAuthenticityScore,  // 0-100
@@ -24,7 +23,7 @@ public record BicameralThought(
     List<String> adjacentTopicCandidates, // max 2
     String nextTopicAnchor       // <= 80 chars
 ) {
-  public static final int CURRENT_VERSION = 1;
+  public static final int CURRENT_VERSION = 2;
 
   public BicameralThought {
     version = version <= 0 ? CURRENT_VERSION : version;
@@ -34,31 +33,12 @@ public record BicameralThought(
     confidenceScore = clamp0to100(confidenceScore);
     voiceAuthenticityScore = clamp0to100(voiceAuthenticityScore);
 
-    affordanceType = affordanceType == null ? AffordanceType.OTHER : affordanceType;
-
     lastMessageIntent = trimToMax(lastMessageIntent, 75);
     myReplyIntent = trimToMax(myReplyIntent, 75);
     nextTopicAnchor = trimToMax(nextTopicAnchor, 80);
 
     voiceNotes = capList(voiceNotes, 2, 80);
     adjacentTopicCandidates = capList(adjacentTopicCandidates, 2, 80);
-  }
-
-  public enum AffordanceType {
-    QUESTION,
-    ACTIVITY,
-    STORY,
-    JOKE,
-    COMPLIMENT,
-    INSULT,
-    ARGUMENT,
-    DEVILS_ADVOCATE,
-    ADVICE,
-    INFORMATION,
-    REASSURANCE,
-    APOLOGY,
-    CHALLENGE,
-    OTHER
   }
 
   private static int clamp0to100(int v) {
@@ -83,4 +63,3 @@ public record BicameralThought(
         .toList();
   }
 }
-

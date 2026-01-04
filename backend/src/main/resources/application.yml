@@ -70,6 +70,10 @@ antfarm:
     # Number of requests per endpoint before logging an average duration and resetting.
     endpointSampleSize: ${ANTFARM_SLA_ENDPOINT_SAMPLE_SIZE:50}
 
+  chat:
+    # Max consecutive NO_RESPONSE results per ant-room assignment before prompting should encourage speaking again.
+    maxNoResponseStreak: ${ANTFARM_CHAT_MAX_NO_RESPONSE_STREAK:3}
+
 spring:
   cloud:
     aws:

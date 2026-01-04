@@ -66,15 +66,18 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
     long start = System.nanoTime();
 
     String system = PromptBuilder.buildSystemPrompt(ant.name(), ant.personalityPrompt());
+
+    boolean forceReply = context != null && "__FORCE_REPLY__".equals(context.bicameralThoughtJson());
     String userCtx = PromptBuilder.buildUserContext(
         context == null ? "" : context.roomScenario(),
         context == null ? "" : context.antPersonality(),
         context == null ? "" : context.roomRoleName(),
         context == null ? "" : context.roomRolePrompt(),
         context == null ? "" : context.roomSummary(),
-        context == null ? "" : context.bicameralThoughtJson(),
+        forceReply ? "" : (context == null ? "" : context.bicameralThoughtJson()),
         context == null ? null : context.recentMessages(),
-        8_000);
+        8_000,
+        forceReply);
 
     MessageCreateParams params = MessageCreateParams.builder()
         .model(modelId)                 // SDK supports model(String)

@@ -6,6 +6,7 @@ import com.aiantfarm.repository.MessageRepository;
 import com.aiantfarm.repository.Page;
 import com.aiantfarm.repository.entity.MessageEntity;
 import com.aiantfarm.utils.DynamoKeys;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -187,7 +188,7 @@ public class MessageRepositoryImpl implements MessageRepository {
         } catch (Exception ex) {
           // best-effort, but warn so failures are visible
           // (we intentionally do not abort the room delete cascade on individual message failures)
-          org.slf4j.LoggerFactory.getLogger(MessageRepositoryImpl.class)
+          LoggerFactory.getLogger(MessageRepositoryImpl.class)
               .warn("Failed to hard-delete message during deleteAllByRoom roomId={} messageId={}", roomId, m.id(), ex);
         }
       }

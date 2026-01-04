@@ -38,6 +38,9 @@ public class AntRoomAssignmentEntity {
   private String bicameralThoughtAt;
   private Integer bicameralThoughtCounter;
 
+  // Consecutive NO_RESPONSE streak (internal-only)
+  private Integer noResponseStreak;
+
   @DynamoDbPartitionKey
   public String getPk() { return pk; }
 

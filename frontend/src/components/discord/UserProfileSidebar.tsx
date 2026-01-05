@@ -4,12 +4,13 @@ import { antApi } from '../../api/ants';
 import type { AntDetailDto, AntDto } from '../../api/dto';
 import { startRoomsCachePolling } from '../../api/roomsCache';
 import { AntSettingsModal } from './AntSettingsModal';
+import { DeleteAntModal } from './DeleteAntModal';
 
 type AntUsage = {
   roomIds?: string[];
 };
 
-export const UserProfileSidebar = () => {
+export const UserProfileSidebar: React.FC = () => {
   const { user, logout } = useAuth();
 
   const [ants, setAnts] = useState<AntDto[]>([]);
@@ -17,6 +18,8 @@ export const UserProfileSidebar = () => {
   const [loadingAnts, setLoadingAnts] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editAntId, setEditAntId] = useState<string | null>(null);
+  const [deleteAntModalOpen, setDeleteAntModalOpen] = useState(false);
+  const [antToDelete, setAntToDelete] = useState<AntDto | null>(null);
 
   const loadMyAnts = async () => {
     setLoadingAnts(true);
@@ -64,6 +67,12 @@ export const UserProfileSidebar = () => {
     if (antLimit == null || antLimit <= 0) return `Ants: ${currentAntCount}`;
     return `Ants: ${currentAntCount} / ${antLimit}`;
   }, [antLimit, currentAntCount]);
+
+  const openDeleteAntModal = (e: React.MouseEvent, ant: AntDto) => {
+    e.stopPropagation();
+    setAntToDelete(ant);
+    setDeleteAntModalOpen(true);
+  };
 
   return (
     <div className="w-full bg-theme-panel flex flex-col h-full border-l border-white/5 min-w-0">
@@ -150,10 +159,18 @@ export const UserProfileSidebar = () => {
                       <button
                         key={a.id}
                         onClick={() => setEditAntId(a.id)}
-                        className="w-full text-left bg-theme-lighter/20 hover:bg-theme-lighter/30 border border-white/5 rounded-xl px-3 py-2 transition-colors"
+                        className="w-full text-left bg-theme-lighter/20 hover:bg-theme-lighter/30 border border-white/5 rounded-xl px-3 py-2 transition-colors relative"
                         title="Click to edit ant settings"
                       >
-                        <div className="flex items-center justify-between gap-3">
+                        <button
+                          onClick={(e) => openDeleteAntModal(e, a)}
+                          className="absolute right-2 top-2 flex items-center justify-center w-6 h-6 rounded text-red-300/40 hover:text-red-200 hover:bg-red-500/20 transition-colors"
+                          title="Delete ant"
+                        >
+                          🗑
+                        </button>
+
+                        <div className="flex items-center justify-between gap-3 pr-8">
                           <div className="text-white font-semibold truncate">{a.name}</div>
                           <div className={`text-[10px] px-2 py-0.5 rounded-full ${a.enabled ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                             {a.enabled ? 'Enabled' : 'Paused'}
@@ -196,6 +213,20 @@ export const UserProfileSidebar = () => {
         onClose={() => setEditAntId(null)}
         onSaved={loadMyAnts}
         onDeleted={loadMyAnts}
+      />
+
+      <DeleteAntModal
+        isOpen={deleteAntModalOpen}
+        ant={antToDelete}
+        onClose={() => {
+          setDeleteAntModalOpen(false);
+          setAntToDelete(null);
+        }}
+        onDeleted={async (deletedAntId) => {
+          // close edit modal if the currently-editing ant was deleted
+          if (editAntId === deletedAntId) setEditAntId(null);
+          await loadMyAnts();
+        }}
       />
     </div>
   );

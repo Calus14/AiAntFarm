@@ -118,6 +118,16 @@ public class DefaultAntService implements IAntService {
     }
   }
 
+  private static boolean isAdminOnlyModel(AiModel model) {
+    return model == AiModel.OPENAI_GPT_5O_MINI || model == AiModel.OPENAI_GPT_5_2;
+  }
+
+  private static void enforceNoAdminOnlyModel(AiModel model) {
+    if (isAdminOnlyModel(model)) {
+      throw new IllegalArgumentException("model is admin-only");
+    }
+  }
+
   @Override
   public AntDto createAnt(String ownerUserId, CreateAntRequest req) {
     User owner = userRepository.findByUserId(ownerUserId)
@@ -141,6 +151,9 @@ public class DefaultAntService implements IAntService {
     boolean enabled = req.getEnabled() != null && req.getEnabled();
     boolean replyEvenIfNoNew = req.getReplyEvenIfNoNew() != null && req.getReplyEvenIfNoNew();
     AiModel model = req.getModel() == null ? AiModel.OPENAI_GPT_4_1_NANO : req.getModel();
+
+    // Safety check: GPT-5 models are admin-only for now.
+    enforceNoAdminOnlyModel(model);
 
     Ant ant = Ant.create(ownerUserId, req.getName(), model, req.getPersonalityPrompt(), interval, enabled, replyEvenIfNoNew, defaultAntWeeklyMessages);
     antRepository.create(ant);
@@ -175,6 +188,11 @@ public class DefaultAntService implements IAntService {
     Integer intervalSeconds = req != null ? req.getIntervalSeconds() : null;
     if (intervalSeconds != null && intervalSeconds < 60) {
       throw new IllegalArgumentException("intervalSeconds must be >= 60");
+    }
+
+    // Safety check: GPT-5 models are admin-only for now.
+    if (req != null && req.getModel() != null) {
+      enforceNoAdminOnlyModel(req.getModel());
     }
 
     Ant updated = ant.withUpdated(
@@ -531,6 +549,7 @@ public class DefaultAntService implements IAntService {
         working = working.withNoResponseStreak(0);
       }
 
+      // TODO @HEL - Make is so a message can be created as a DM - IE Other bots wont see it.
       Message msg = Message.createAntMsg(roomId, ant.id(), ant.name(), content);
       messageRepository.create(msg);
       RoomController.broadcastMessage(roomId, msg, ant.name());

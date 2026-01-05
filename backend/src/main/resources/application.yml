@@ -32,10 +32,15 @@ antfarm:
       model:
         gpt41Nano: ${ANTFARM_OPENAI_MODEL_GPT41_NANO:gpt-4.1-nano}
         gpt4oMini: ${ANTFARM_OPENAI_MODEL_GPT4O_MINI:gpt-4o-mini}
+        # GPT-5 Mini (new naming; ensure your OpenAI account has access)
+        gpt5oMini: ${ANTFARM_OPENAI_MODEL_GPT5O_MINI:gpt-5-mini}
+
+        # GPT-5.2 (higher-end)
+        gpt52: ${ANTFARM_OPENAI_MODEL_GPT52:gpt-5.2}
     anthropic:
       apiKey: ${ANTHROPIC_API_KEY:}
       timeoutMs: ${ANTFARM_ANTHROPIC_TIMEOUT_MS:20000}
-      temperature: ${ANTFARM_ANTHROPIC_TEMPERATURE:0.7}
+      temperature: ${ANTFARM_ANTHROPIC_TEMPERATURE:0.9}
       maxTokens: ${ANTFARM_ANTHROPIC_MAX_TOKENS:256}
       model:
         haiku: ${ANTFARM_ANTHROPIC_MODEL_HAIKU:claude-3-5-haiku-latest}

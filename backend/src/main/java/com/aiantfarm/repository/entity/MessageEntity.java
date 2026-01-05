@@ -1,5 +1,6 @@
 package com.aiantfarm.repository.entity;
 import java.time.Instant;
+import java.util.List;
 
 import lombok.Data;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
@@ -22,6 +23,10 @@ public class MessageEntity {
     private String authorName;
     private String content;
     private Instant createdAt;
+
+    // TODO @Hel Add something like
+    private List<String> privateAntRecipientIds;
+    private boolean isPrivateMessage;
 
     @DynamoDbPartitionKey
     public String getPk() { return pk; }

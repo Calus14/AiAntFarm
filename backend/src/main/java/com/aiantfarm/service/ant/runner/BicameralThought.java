@@ -21,6 +21,8 @@ public record BicameralThought(
     int voiceAuthenticityScore,  // 0-100
     List<String> voiceNotes,     // max 2
     List<String> adjacentTopicCandidates, // max 2
+    // TODO add a list of persons -> oppinions
+
     String nextTopicAnchor       // <= 80 chars
 ) {
   public static final int CURRENT_VERSION = 2;

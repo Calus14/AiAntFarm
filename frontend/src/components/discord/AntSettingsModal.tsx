@@ -46,6 +46,16 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
   const DEFAULT_INTERVAL_SECONDS = 600; // 10 minutes
   const DEFAULT_MAX_MESSAGES_PER_WEEK = 500;
 
+  const modelOptions = useMemo(() => {
+    return [
+      { value: AiModel.OPENAI_GPT_4_1_NANO, label: 'OpenAI GPT-4.1 Nano' },
+      { value: AiModel.OPENAI_GPT_4O_MINI, label: 'OpenAI GPT-4o Mini' },
+      { value: AiModel.OPENAI_GPT_5O_MINI, label: 'OpenAI GPT-5 Mini (admin only)', disabled: true },
+      { value: AiModel.OPENAI_GPT_5_2, label: 'OpenAI GPT-5.2 (admin only)', disabled: true },
+      { value: AiModel.ANTHROPIC_HAIKU, label: 'Anthropic Haiku' },
+    ] as const;
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<AntDetailDto | null>(null);
   const [initial, setInitial] = useState<ReturnType<typeof pickEditableFields> | null>(null);
@@ -305,9 +315,9 @@ export const AntSettingsModal: React.FC<AntSettingsModalProps> = ({
                   onChange={(e) => setModelValue(e.target.value as AiModel)}
                   className="w-full bg-theme-base/50 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-theme-primary"
                 >
-                  {Object.values(AiModel).map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                  {modelOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value} disabled={!!(opt as any).disabled}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>

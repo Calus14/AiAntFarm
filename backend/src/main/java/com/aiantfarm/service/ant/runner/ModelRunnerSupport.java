@@ -154,6 +154,8 @@ public abstract class ModelRunnerSupport {
       return switch (model) {
         case OPENAI_GPT_4_1_NANO -> new Pricing(BigDecimal.valueOf(0.15), BigDecimal.valueOf(0.60));
         case OPENAI_GPT_4O_MINI -> new Pricing(BigDecimal.valueOf(0.15), BigDecimal.valueOf(0.60));
+        case OPENAI_GPT_5O_MINI -> new Pricing(BigDecimal.valueOf(0.25), BigDecimal.valueOf(2.00));
+        case OPENAI_GPT_5_2 -> new Pricing(BigDecimal.valueOf(0.50), BigDecimal.valueOf(4.00));
         case ANTHROPIC_HAIKU -> new Pricing(BigDecimal.valueOf(0.25), BigDecimal.valueOf(1.25));
       };
     }

@@ -162,13 +162,6 @@ public final class PromptBuilder {
     return sb.toString().trim();
   }
 
-  /**
-   * System prompt used to generate/update the rolling summary.
-   */
-  public static String buildSummarySystemPrompt(String antName, String personalityPrompt) {
-    return buildSummarySystemPrompt(antName, personalityPrompt, null);
-  }
-
   public static String buildSummarySystemPrompt(String antName, String personalityPrompt, Integer maxOutputTokens) {
     String outputLimitLine = (maxOutputTokens == null)
         ? "Output limit: keep the summary short (aim <= ~200 words).\n"
@@ -229,10 +222,6 @@ public final class PromptBuilder {
     sb.append("Task: produce an UPDATED rolled-up summary (replace the existing summary with a new one).\n");
 
     return sb.toString();
-  }
-
-  public static String buildBicameralThoughtSystemPrompt(String antName) {
-    return buildBicameralThoughtSystemPrompt(antName, null);
   }
 
   public static String buildBicameralThoughtSystemPrompt(String antName, Integer maxOutputTokens) {

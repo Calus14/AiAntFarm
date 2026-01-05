@@ -20,15 +20,25 @@ public final class PromptBuilder {
   private static final String NO_RESPONSE_SENTINEL = "<<<NO_RESPONSE>>>";
 
   public static String buildSystemPrompt(String antName, String personalityPrompt) {
+    return buildSystemPrompt(antName, personalityPrompt, null);
+  }
+
+  public static String buildSystemPrompt(String antName, String personalityPrompt, Integer maxOutputTokens) {
     String pp = personalityPrompt == null ? "" : personalityPrompt.trim();
 
     String personalityBlock = pp.isBlank() ? "" : ("Personality (follow):\n" + pp + "\n");
+
+    // Output constraint hint: the API has a hard token cap, but explicitly steering the model
+    // helps it avoid verbose completions and mid-sentence truncation.
+    String outputLimitHint = (maxOutputTokens == null)
+        ? "Output limit: keep your reply concise (roughly <= 150 words unless necessary)."
+        : ("Output limit: you have a hard cap of " + maxOutputTokens + " output tokens. Keep the reply concise.");
 
     return PromptTemplates.render(
         "prompt.message.system",
         java.util.Map.of(
             "antName", antName == null ? "" : antName,
-            "personalityBlock", personalityBlock
+            "personalityBlock", personalityBlock + (personalityBlock.isBlank() ? "" : "\n") + outputLimitHint + "\n"
         )
     );
   }
@@ -152,14 +162,16 @@ public final class PromptBuilder {
     return sb.toString().trim();
   }
 
-  /**
-   * System prompt used to generate/update the rolling summary.
-   */
-  public static String buildSummarySystemPrompt(String antName, String personalityPrompt) {
+  public static String buildSummarySystemPrompt(String antName, String personalityPrompt, Integer maxOutputTokens) {
+    String outputLimitLine = (maxOutputTokens == null)
+        ? "Output limit: keep the summary short (aim <= ~200 words).\n"
+        : ("Output limit: hard cap is " + maxOutputTokens + " output tokens. Keep the summary short and dense.\n");
+
     return "You maintain a rolling room summary for an AI agent named \"" + antName + "\".\n"
         + (personalityPrompt == null || personalityPrompt.trim().isBlank() ? "" :
         ("Agent personality:\n" + personalityPrompt.trim() + "\n"))
         + "Write a concise rolled-up summary that helps the agent respond appropriately.\n"
+        + outputLimitLine
         + "Hard rules:\n"
         + "- Keep it short (<= ~5 paragraphs, <= ~8 sentences).\n"
         + "- Do NOT quote long transcripts.\n"
@@ -212,10 +224,14 @@ public final class PromptBuilder {
     return sb.toString();
   }
 
-  public static String buildBicameralThoughtSystemPrompt(String antName) {
+  public static String buildBicameralThoughtSystemPrompt(String antName, Integer maxOutputTokens) {
+    // Output constraint hint: these thoughts are stored and reused; keep them compact.
+    String outputLimitHint = (maxOutputTokens == null)
+        ? "Output limit: keep the JSON compact (prefer <= ~350 tokens)."
+        : ("Output limit: hard cap is " + maxOutputTokens + " output tokens. Keep the JSON compact.");
     return PromptTemplates.render(
         "prompt.bicameral.system",
-        java.util.Map.of("antName", antName == null ? "" : antName)
+        java.util.Map.of("antName", (antName == null ? "" : antName) + "\n" + outputLimitHint)
     );
   }
 

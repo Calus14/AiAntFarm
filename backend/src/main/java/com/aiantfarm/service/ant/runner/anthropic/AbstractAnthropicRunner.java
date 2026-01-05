@@ -65,7 +65,7 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
   public String generateMessage(Ant ant, String roomId, AntModelContext context) {
     long start = System.nanoTime();
 
-    String system = PromptBuilder.buildSystemPrompt(ant.name(), ant.personalityPrompt());
+    String system = PromptBuilder.buildSystemPrompt(ant.name(), ant.personalityPrompt(), maxTokens);
 
     boolean forceReply = context != null && "__FORCE_REPLY__".equals(context.bicameralThoughtJson());
     String userCtx = PromptBuilder.buildUserContext(
@@ -148,7 +148,7 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
   public String generateRoomSummary(Ant ant, String roomId, AntModelContext context, String existingSummary) {
     long start = System.nanoTime();
 
-    String system = PromptBuilder.buildSummarySystemPrompt(ant.name(), ant.personalityPrompt());
+    String system = PromptBuilder.buildSummarySystemPrompt(ant.name(), ant.personalityPrompt(), 600);
     String user = PromptBuilder.buildSummaryUserPrompt(
         context == null ? "" : context.roomScenario(),
         context == null ? "" : context.antPersonality(),
@@ -226,7 +226,7 @@ public abstract class AbstractAnthropicRunner extends ModelRunnerSupport impleme
   public String generateBicameralThought(Ant ant, String roomId, AntModelContext context) {
     long start = System.nanoTime();
 
-    String system = PromptBuilder.buildBicameralThoughtSystemPrompt(ant.name());
+    String system = PromptBuilder.buildBicameralThoughtSystemPrompt(ant.name(), 500);
     String user = PromptBuilder.buildBicameralThoughtUserPrompt(
         context == null ? "" : context.roomScenario(),
         context == null ? "" : context.antPersonality(),

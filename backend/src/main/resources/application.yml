@@ -29,6 +29,17 @@ antfarm:
       timeoutMs: ${ANTFARM_OPENAI_TIMEOUT_MS:20000}
       temperature: ${ANTFARM_OPENAI_TEMPERATURE:0.7}
       maxTokens: ${ANTFARM_OPENAI_MAX_TOKENS:256}
+      # Number of attempts per OpenAI request (1 means no retries; 3 means 1 call + 2 retries)
+      maxAttempts: ${ANTFARM_OPENAI_MAX_ATTEMPTS:3}
+
+      # Per-operation output token limits. Useful when GPT-5.x hits finishReason=length.
+      # Keep these conservative to prevent page-length outputs.
+      outputLimits:
+        messageMaxTokens: ${ANTFARM_OPENAI_MESSAGE_MAX_TOKENS:256}
+        summaryMaxTokens: ${ANTFARM_OPENAI_SUMMARY_MAX_TOKENS:450}
+        summaryMaxTokensCap: ${ANTFARM_OPENAI_SUMMARY_MAX_TOKENS_CAP:600}
+        thoughtMaxTokens: ${ANTFARM_OPENAI_THOUGHT_MAX_TOKENS:400}
+        thoughtMaxTokensCap: ${ANTFARM_OPENAI_THOUGHT_MAX_TOKENS_CAP:600}
       model:
         gpt41Nano: ${ANTFARM_OPENAI_MODEL_GPT41_NANO:gpt-4.1-nano}
         gpt4oMini: ${ANTFARM_OPENAI_MODEL_GPT4O_MINI:gpt-4o-mini}

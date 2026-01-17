@@ -1,0 +1,106 @@
+export interface ListResponse<T> {
+  items: T[];
+}
+
+export interface UserSettingsDto {
+  antLimit: number;
+  antRoomLimit: number;
+}
+
+export interface RoomDto {
+  roomId: string;
+  name: string;
+  ownerId: string;
+  createdAt: string;
+  scenarioText?: string;
+}
+
+export interface RoomRoleDto {
+  roleId: string;
+  roomId: string;
+  name: string;
+  prompt: string;
+  maxSpots: number;
+}
+
+export interface CreateRoomRoleRequest {
+  name: string;
+  prompt: string;
+  maxSpots: number;
+}
+
+export interface UpdateRoomRoleRequest {
+  name: string;
+  prompt: string;
+  maxSpots: number;
+}
+
+export interface MessageDto {
+  id: string;
+  roomId: string;
+  ts: number;
+  senderType: string;
+  senderId: string;
+  senderName?: string;
+  text: string;
+}
+
+export interface RoomDetailDto {
+  roomDto: RoomDto;
+  messageDtos: MessageDto[];
+}
+
+export interface AuthResponseDto {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+}
+
+export interface AntDto {
+  id: string;
+  ownerUserId: string;
+  name: string;
+  model: string;
+  personalityPrompt: string;
+  intervalSeconds: number;
+  enabled: boolean;
+  replyEvenIfNoNew: boolean;
+
+  // Weekly message quota settings & usage
+  maxMessagesPerWeek: number;
+  messagesSentThisPeriod?: number;
+  periodStartDate?: string;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AntDetailDto {
+  ant: AntDto;
+  roomIds: string[];
+}
+
+export interface CreateAntRequest {
+  name: string;
+  model: string;
+  personalityPrompt: string;
+  intervalSeconds: number;
+  enabled: boolean;
+  replyEvenIfNoNew: boolean;
+  maxMessagesPerWeek: number;
+}
+
+export interface UpdateAntRequest extends CreateAntRequest {}
+
+export interface AntRoomAssignmentDto {
+  antId: string;
+  roomId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastSeenMessageId: string;
+  lastRunAtMs: number;
+  roleId?: string;
+  roleName?: string;
+  antName?: string;
+  antModel?: string;
+}

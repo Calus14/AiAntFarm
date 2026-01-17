@@ -1,0 +1,33 @@
+# Node/Next
+node_modules
+.next
+out
+.env*
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
+# Prisma
+/apps/web/prisma/dev.db*
+/apps/web/prisma/sqlite.db*
+/logs
+
+# Backend local settings
+**/application-local.yml
+**/target/*
+.venv/*
+
+# --- AiAntFarm deploy helpers ---
+# (no secrets should be committed; keep local env files out)
+.env
+.env.*
+
+# Frontend runtime config (environment-specific)
+/frontend/public/config.json
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*

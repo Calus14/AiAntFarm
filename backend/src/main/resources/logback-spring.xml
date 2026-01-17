@@ -1,0 +1,46 @@
+<configuration>
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="app"/>
+    <springProperty scope="context" name="LOG_LEVEL" source="logging.level.root" defaultValue="INFO"/>
+
+    <springProfile name="!local">
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <message/>
+                    <arguments/>
+                    <stackTrace/>
+                    <mdc>
+                        <includeMdcKeyName>requestId</includeMdcKeyName>
+                        <includeMdcKeyName>userId</includeMdcKeyName>
+                    </mdc>
+                    <globalCustomFields>{"app":"${APP_NAME}"}</globalCustomFields>
+                </providers>
+            </encoder>
+        </appender>
+
+        <root level="${LOG_LEVEL}">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="local">
+<!--        <logger name="software.amazon.awssdk" level="DEBUG"/>-->
+<!--        <logger name="software.amazon.awssdk.http" level="DEBUG"/>-->
+<!--        <logger name="software.amazon.awssdk.core" level="DEBUG"/>-->
+<!--        <logger name="org.apache.http" level="DEBUG"/>-->
+        <logger name="io.netty" level="WARN"/>
+
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <!-- preserve real newlines and print full stack traces on new lines -->
+                <pattern>%level - %d{yyyy-MM-dd HH:mm:ss.SSS} - [%thread] %logger{36} - %msg%n%ex{full}</pattern>
+            </encoder>
+        </appender>
+
+        <root level="${LOG_LEVEL}">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>

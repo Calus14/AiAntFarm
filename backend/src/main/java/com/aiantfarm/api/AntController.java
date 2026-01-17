@@ -1,0 +1,149 @@
+package com.aiantfarm.api;
+
+import com.aiantfarm.api.dto.AntDto;
+import com.aiantfarm.api.dto.AssignAntToRoomRequest;
+import com.aiantfarm.api.dto.AssignAntRoomRoleRequest;
+import com.aiantfarm.api.dto.CreateAntRequest;
+import com.aiantfarm.api.dto.ListResponse;
+import com.aiantfarm.api.dto.UpdateAntRequest;
+import com.aiantfarm.exception.ResourceNotFoundException;
+import com.aiantfarm.service.IAntService;
+import com.aiantfarm.service.RoomAntRoleService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/ants")
+@Slf4j
+public class AntController {
+
+  private final IAntService antService;
+  private final RoomAntRoleService roomAntRoleService;
+
+  public AntController(IAntService antService, RoomAntRoleService roomAntRoleService) {
+    this.antService = antService;
+    this.roomAntRoleService = roomAntRoleService;
+  }
+
+  @PostMapping
+  public ResponseEntity<?> create(@RequestBody CreateAntRequest req) {
+    String userId = currentUserId();
+    try {
+      var dto = antService.createAnt(userId, req);
+      return ResponseEntity.status(201).body(dto);
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
+  @GetMapping
+  public ResponseEntity<ListResponse<AntDto>> listMine() {
+    String userId = currentUserId();
+    return ResponseEntity.ok(antService.listMyAnts(userId));
+  }
+
+  @GetMapping("/{antId}")
+  public ResponseEntity<?> get(@PathVariable String antId) {
+    String userId = currentUserId();
+    try {
+      return ResponseEntity.ok(antService.getAnt(userId, antId));
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
+  @PatchMapping("/{antId}")
+  public ResponseEntity<?> update(@PathVariable String antId, @RequestBody UpdateAntRequest req) {
+    String userId = currentUserId();
+    try {
+      return ResponseEntity.ok(antService.updateAnt(userId, antId, req));
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
+  @PostMapping("/{antId}/rooms")
+  public ResponseEntity<?> assignToRoom(@PathVariable String antId, @RequestBody AssignAntToRoomRequest req) {
+    String userId = currentUserId();
+    try {
+      antService.assignToRoom(userId, antId, req);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
+  @DeleteMapping("/{antId}/rooms/{roomId}")
+  public ResponseEntity<?> unassignFromRoom(@PathVariable String antId, @PathVariable String roomId) {
+    String userId = currentUserId();
+    try {
+      antService.unassignFromRoom(userId, antId, roomId);
+      return ResponseEntity.accepted().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
+  // Manual run trigger (no run history persisted)
+  @PostMapping("/{antId}/run")
+  public ResponseEntity<?> runNow(@PathVariable String antId) {
+    String userId = currentUserId();
+    try {
+      antService.runNow(userId, antId);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
+  @PutMapping("/{antId}/rooms/{roomId}/room-role")
+  public ResponseEntity<?> assignRoomRole(@PathVariable String antId,
+                                         @PathVariable String roomId,
+                                         @RequestBody AssignAntRoomRoleRequest req) {
+    String userId = currentUserId();
+    try {
+      roomAntRoleService.assignToAntInRoom(userId, antId, roomId, req);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
+  // DELETE an ant (owner-only). Removes assignments and cancels scheduler.
+  @DeleteMapping("/{antId}")
+  public ResponseEntity<?> delete(@PathVariable String antId) {
+    String userId = currentUserId();
+    try {
+      antService.deleteAnt(userId, antId);
+      return ResponseEntity.accepted().build();
+    } catch (ResourceNotFoundException e) {
+      return ResponseEntity.notFound().build();
+    } catch (SecurityException e) {
+      return ResponseEntity.status(403).build();
+    }
+  }
+
+  private String currentUserId() {
+    return (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+  }
+}

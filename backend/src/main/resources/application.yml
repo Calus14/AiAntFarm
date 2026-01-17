@@ -1,0 +1,112 @@
+server:
+  port: 9000
+app:
+
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
+
+antfarm:
+  jwt:
+    issuer: "ai-antfarm-dev"
+    # IMPORTANT: do not hardcode real secrets here. In AWS, inject APP_JWT_SECRET from SSM.
+    # Local default only.
+    secret: ${APP_JWT_SECRET:change-me-dev-secret-32-bytes-minimum-change}
+    ttlSeconds: 3600
+  tables:
+    main: ${ANTFARM_DDB_TABLE:AiAntFarmTable}
+  ants:
+    schedulerThreads: ${ANTFARM_ANTS_SCHEDULER_THREADS:1}
+    workerThreads: ${ANTFARM_ANTS_WORKER_THREADS:4}
+    workerQueueSize: ${ANTFARM_ANTS_WORKER_QUEUE_SIZE:200}
+    # Generate an internal self-reflection "thought" object every N runs per ant-room assignment (0 disables).
+    bicameral:
+      everyNRuns: 3
+
+  # Model provider configuration
+  models:
+    openai:
+      apiKey: ${OPENAI_API_KEY:}
+      timeoutMs: ${ANTFARM_OPENAI_TIMEOUT_MS:20000}
+      temperature: ${ANTFARM_OPENAI_TEMPERATURE:0.7}
+      maxTokens: ${ANTFARM_OPENAI_MAX_TOKENS:256}
+      # Number of attempts per OpenAI request (1 means no retries; 3 means 1 call + 2 retries)
+      maxAttempts: ${ANTFARM_OPENAI_MAX_ATTEMPTS:3}
+
+      # Per-operation output token limits. Useful when GPT-5.x hits finishReason=length.
+      # Keep these conservative to prevent page-length outputs.
+      outputLimits:
+        messageMaxTokens: ${ANTFARM_OPENAI_MESSAGE_MAX_TOKENS:256}
+        summaryMaxTokens: ${ANTFARM_OPENAI_SUMMARY_MAX_TOKENS:450}
+        summaryMaxTokensCap: ${ANTFARM_OPENAI_SUMMARY_MAX_TOKENS_CAP:600}
+        thoughtMaxTokens: ${ANTFARM_OPENAI_THOUGHT_MAX_TOKENS:400}
+        thoughtMaxTokensCap: ${ANTFARM_OPENAI_THOUGHT_MAX_TOKENS_CAP:600}
+      model:
+        gpt41Nano: ${ANTFARM_OPENAI_MODEL_GPT41_NANO:gpt-4.1-nano}
+        gpt4oMini: ${ANTFARM_OPENAI_MODEL_GPT4O_MINI:gpt-4o-mini}
+        # GPT-5 Mini (new naming; ensure your OpenAI account has access)
+        gpt5oMini: ${ANTFARM_OPENAI_MODEL_GPT5O_MINI:gpt-5-mini}
+
+        # GPT-5.2 (higher-end)
+        gpt52: ${ANTFARM_OPENAI_MODEL_GPT52:gpt-5.2}
+    anthropic:
+      apiKey: ${ANTHROPIC_API_KEY:}
+      timeoutMs: ${ANTFARM_ANTHROPIC_TIMEOUT_MS:20000}
+      temperature: ${ANTFARM_ANTHROPIC_TEMPERATURE:0.9}
+      maxTokens: ${ANTFARM_ANTHROPIC_MAX_TOKENS:256}
+      model:
+        haiku: ${ANTFARM_ANTHROPIC_MODEL_HAIKU:claude-3-5-haiku-latest}
+
+  rooms:
+    summary:
+      maxWords: 200
+    antRoles:
+      maxSpotsLimit: ${ANTFARM_ROOMS_ANTROLES_MAX_SPOTS_LIMIT:5}
+
+  ai:
+    transcripts:
+      enabled: ${ANTFARM_AI_TRANSCRIPTS_ENABLED:true}
+      file: ${ANTFARM_AI_TRANSCRIPTS_FILE:logs/ai-transcripts.ndjson}
+
+  email:
+    provider: ${ANTFARM_EMAIL_PROVIDER:mock} # mock or ses
+    from: ${ANTFARM_EMAIL_FROM:noreply@theaiantfarm.com}
+    frontendUrl: ${ANTFARM_FRONTEND_URL:https://theaiantfarm.com}
+
+  admin:
+    # Admin API key for non-UI, privileged operations (set via env in AWS)
+    key: ${ANTFARM_ADMIN_KEY:change-me-admin-key}
+
+    # Per-user defaults (persisted onto UserEntity at signup)
+    defaultRoomLimit: ${ANTFARM_DEFAULT_ROOM_LIMIT:1}
+    defaultAntLimit: ${ANTFARM_DEFAULT_ANT_LIMIT:3}
+    defaultAntRoomLimit: ${ANTFARM_DEFAULT_ANT_ROOM_LIMIT:3}
+    defaultAntWeeklyMessages: ${ANTFARM_DEFAULT_ANT_WEEKLY_MESSAGES:500}
+
+  sla:
+    # Number of requests per endpoint before logging an average duration and resetting.
+    endpointSampleSize: ${ANTFARM_SLA_ENDPOINT_SAMPLE_SIZE:50}
+
+  chat:
+    # Max consecutive NO_RESPONSE results per ant-room assignment before prompting should encourage speaking again.
+    maxNoResponseStreak: ${ANTFARM_CHAT_MAX_NO_RESPONSE_STREAK:3}
+
+spring:
+  cloud:
+    aws:
+      region: us-east-2
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:}
+  application:
+    name: ai-antfarm
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"   # ok to keep; details remain locked down below
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
